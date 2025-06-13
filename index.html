@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    <tittle>Register</tittle>
+</head>
+<body>
+    
+<form id="registrationForm" action="https://formsubmit.co/nuzlahkale@gmail.com" 
+method="POST" enctype="multipart/form-data" target="_blank">
+  <input type="hidden"
+ name="_captcha" value="true">
+  <input type="hidden" name="_next" value="http://127.0.0.1:5500/Thankyou.html">
+
+
+  <label for="name">Your name <span class="required-star">*</span></label><br>
+  <input type="text" name="name" placeholder="Your full name" required><br><br>
+
+  <label for="email">Your email <span class="required-star">*</span></label><br>
+  <input type="email" name="email" placeholder="email@gmail.com" required><br><br>
+
+  <label for="phone">Phone Number <span class="required-star">*</span></label><br>
+  <input type="tel" name="phone" placeholder="+254712345678" required><br><br>
+
+  <label for="linkedin">LinkedIn Profile Link (optional)</label><br>
+  <input type="url" name="linkedin" placeholder="https://linkedin.com/in/yourname"><br><br>
+
+  <label for="dob">Date of Birth <span class="required-star">*</span></label><br>
+  <input type="date" name="dob" required><br><br>
+
+  <label for="contact_time">Preferred Contact Time <span class="required-star">*</span></label><br>
+  <input type="time" name="contact_time" required><br><br>
+
+  <label>Gender <span class="required-star">*</span></label><br>
+  <input type="radio" name="gender" value="male" required> Male<br>
+  <input type="radio" name="gender" value="female"> Female<br>
+  <input type="radio" name="gender" value="other"> Other<br><br>
+
+  <label>Interests (you can choose more than one):</label><br>
+  <input type="checkbox" name="interests[]" value="tech"> Technology<br>
+  <input type="checkbox" name="interests[]" value="design"> Design<br>
+  <input type="checkbox" name="interests[]" value="networking"> Networking<br>
+  <input type="checkbox" name="interests[]" value="speaking"> Public Speaking<br><br>
+
+  <!-- PDF Upload -->
+  <label for="pdfUpload">Or upload your PDF file (CV or ID):</label><br>
+  <input type="file" id="pdfUpload" name="pdfUpload" accept="application/pdf"><br><br>
+
+  <!-- Added feedback rating and message -->
+  <label for="rating">Rate your experience (1 = very dissatisfied, 10 = extremely satisfied) <span class="required-star">*</span></label><br>
+  <select name="rating" id="rating" required>
+    <option value="" disabled selected>Select a rating</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+    <option value="7">7</option>
+    <option value="8">8</option>
+    <option value="9">9</option>
+    <option value="10">10</option>
+  </select><br><br>
+
+  <label for="improvement">What can we improve? (Optional)</label><br>
+  <textarea id="improvement" name="improvement" rows="4" placeholder="Please share your suggestions here..."></textarea><br><br>
+
+  <label>
+    <input type="checkbox" name="terms" required>
+    I agree to the event’s terms and conditions <span class="required-star">*</span>
+  </label><br><br>
+
+  <input type="submit" value="Register">
+</form>
+</body>
+</html>
+
+
