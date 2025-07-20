@@ -1,55 +1,121 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <tittle>feedback</tittle>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GazaChat - Offline Crisis Messaging</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+  </style>
 </head>
-<body>
-    
-<form id="registrationForm" action="https://formsubmit.co/nuzlahkale@gmail.com" 
-method="POST" enctype="multipart/form-data" target="_blank">
-  <input type="hidden"
- name="_captcha" value="true">
-  <input type="hidden" name="_next" value="https://alzunelak.github.io/my-profile-page/Thankyou.html">
+<body class="bg-white text-gray-800">
 
-  <label>Gender (this is radio)<span class="required-star">*</span></label><br>
-  <input type="radio" name="gender" value="male" required> Male
-  <input type="radio" name="gender" value="female"> Female
-  <input type="radio" name="gender" value="other"> Other<br></br>
+  <!-- 🌅 Background Image Hero Section -->
+  <section class="relative h-screen bg-cover bg-center" style="background-image: url('https://via.placeholder.com/1600x900');">
+    <!-- Overlay -->
+    <div class="absolute inset-0 bg-black bg-opacity-60"></div>
 
-  <label>which topic (checkbox)(you can choose more than one):</label><br>
-  <input type="checkbox" name="interests[]" value="tech"> encrypt on the media<br>
-  <input type="checkbox" name="interests[]" value="design"> Thank.html<br>
-  <input type="checkbox" name="interests[]" value="networking"> input text <br>
-  <input type="checkbox" name="interests[]" value="speaking"> Public Speaking<br><br>
+    <!-- Navbar -->
+    <nav class="absolute top-0 left-0 right-0 z-20 flex justify-between items-center px-8 py-6 text-white">
+      <div class="text-2xl font-bold">GazaChat</div>
+      <ul class="flex space-x-6 text-sm font-medium">
+        <li><a href="#problem" class="hover:underline">Problem</a></li>
+        <li><a href="#group-selection" class="hover:underline">Group Selection</a></li>
+        <li><a href="#solutions" class="hover:underline">Solutions</a></li>
+        <li><a href="#vision-features" class="hover:underline">Vision & Features</a></li>
+      </ul>
+    </nav>
 
-  <!-- PDF Upload -->
-  <label for="pdfUpload">Or upload your PDF file (CV,screenshoot,resume):</label><br>
-  <input type="file" id="pdfUpload" name="pdfUpload" accept="application/pdf"><br><br>
+    <!-- Hero Content -->
+    <div class="relative z-10 flex items-center justify-center h-full px-6 text-center text-white">
+      <div>
+        <h1 class="text-4xl md:text-5xl font-bold mb-4">Offline Peer-to-Peer Messaging for Crisis Zones</h1>
+        <p class="max-w-xl mx-auto text-lg">GazaChat is a peer-to-peer offline messaging app for use in crisis zones with no internet access.</p>
+      </div>
+    </div>
+  </section>
 
-  <!-- Added feedback rating and message -->
-  <label for="rating">Rate your understanding (select dropdown)(1 = very dissatisfied, 10 = extremely satisfied) <span class="required-star">*</span></label><br>
-  <select name="rating" id="rating" required>
-    <option value="" disabled selected>Select a rating</option>
-    <option value="1">1</option>
-    <option value="2">2</option>
-    <option value="3">3</option>
-    <option value="4">4</option>
-    <option value="5">5</option>
-    <option value="6">6</option>
-    <option value="7">7</option>
-    <option value="8">8</option>
-    <option value="9">9</option>
-    <option value="10">10</option>
-  </select><b><br>
+  <!-- 🧩 Problem Section -->
+  <section id="problem" class="py-16 bg-white">
+    <div class="max-w-5xl mx-auto px-6">
+      <h2 class="text-3xl font-bold mb-4">Problem</h2>
+      <p class="text-lg text-gray-700">In crisis zones, internet and cellular networks are often shut down. People are left unable to communicate with loved ones, aid workers, or communities. There is an urgent need for secure, offline messaging that works without central servers.</p>
+    </div>
+  </section>
 
-  <label for="improvement">Which part did you not understand? (Optional)</label><br>
-  <textarea id="improvement" name="improvement" rows="4" placeholder="Please share your suggestions here..."></textarea><br><br>
+  <!-- 🧩 Group Selection - 4 Column Grid -->
+  <section id="group-selection" class="py-16 bg-gray-100">
+    <div class="max-w-6xl mx-auto px-6">
+      <h2 class="text-3xl font-bold mb-10">Group Selection</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white p-4 shadow rounded-lg">
+          <img src="https://via.placeholder.com/300x200" class="w-full h-40 object-cover mb-4 rounded" />
+          <h3 class="text-lg font-semibold">How It Works</h3>
+        </div>
+        <div class="bg-white p-4 shadow rounded-lg">
+          <img src="https://via.placeholder.com/300x200" class="w-full h-40 object-cover mb-4 rounded" />
+          <h3 class="text-lg font-semibold">Why It Matters</h3>
+        </div>
+        <div class="bg-white p-4 shadow rounded-lg">
+          <img src="https://via.placeholder.com/300x200" class="w-full h-40 object-cover mb-4 rounded" />
+          <h3 class="text-lg font-semibold">Phase 1: PWA Prototype</h3>
+        </div>
+        <div class="bg-white p-4 shadow rounded-lg">
+          <img src="https://via.placeholder.com/300x200" class="w-full h-40 object-cover mb-4 rounded" />
+          <h3 class="text-lg font-semibold">Phased Rollout</h3>
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <label for="improvement">What can i improve? (Optional)</label><br>
-  <textarea id="improvement" name="improvement" rows="4" placeholder="Please share your suggestions here..."></textarea><br><br>
+  <!-- 🧩 Solutions Section -->
+  <section id="solutions" class="py-16 bg-white">
+    <div class="max-w-5xl mx-auto px-6">
+      <h2 class="text-3xl font-bold mb-4">Solutions</h2>
+      <p class="text-lg text-gray-700">
+        GazaChat solves these challenges using peer-to-peer WebRTC connections, QR-code-based handshakes, and offline-first storage via IndexedDB. All communication is encrypted, and the app runs as a PWA on mobile or desktop without requiring central servers.
+      </p>
+    </div>
+  </section>
 
   
-  <input type="submit" value="Register">
-</form>
+  <!-- 🧩 Vision & Features Section -->
+<section id="vision-features" class="py-16 bg-gray-100">
+  <div class="max-w-6xl mx-auto px-6">
+    <h2 class="text-3xl font-bold mb-10">Vision & Features</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <!-- Two Images Column -->
+      <div class="space-y-4">
+        <img src="https://via.placeholder.com/600x300" class="rounded-lg shadow w-full" alt="Feature Image 1" />
+        <img src="https://via.placeholder.com/600x300" class="rounded-lg shadow w-full" alt="Feature Image 2" />
+      </div>
+
+      <!-- Text Column -->
+      <div class="text-gray-700 text-lg">
+        <p><strong>Vision:</strong> Empower communities in crisis to stay connected without needing the internet. Build a global, decentralized communication safety net.</p>
+        <br />
+        <p><strong>Key Features:</strong></p>
+        <ul class="list-disc ml-5">
+          <li>Peer-to-peer encrypted messaging</li>
+          <li>QR code connection setup</li>
+          <li>Offline support with local storage</li>
+          <li>Progressive Web App (PWA) functionality</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+  <!-- 🧩 Footer -->
+  <footer class="bg-gray-900 text-white text-center py-6 mt-16">
+    <p>&copy; 2025 GazaChat. All rights reserved.</p>
+  </footer>
+
 </body>
 </html>
+
