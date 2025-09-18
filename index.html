@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bluetooth Web Demo</title>
+  <style>
+    :root { --bg:#000; --panel:#111; --accent:#25d366; --muted:#888; color-scheme: dark; }
+    body { margin:0; font-family: Inter, Arial, sans-serif; background:var(--bg); color:#fff; }
+    header{padding:16px;background:var(--panel);display:flex;align-items:center;justify-content:space-between;}
+    h1{font-size:18px;margin:0}
+    main{padding:16px}
+    button{background:var(--accent);color:#000;padding:10px 14px;border-radius:8px;border:none;font-weight:700;cursor:pointer}
+    .list{margin-top:16px;background:var(--panel);padding:12px;border-radius:8px}
+    .device{padding:10px;border-bottom:1px solid rgba(255,255,255,0.04)}
+    .device:last-child{border-bottom:0}
+    .name{font-weight:700}
+    .id{color:var(--muted);font-size:12px}
+    .status{margin-top:12px;color:var(--accent)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Bluetooth Web Demo</h1>
+    <div>
+      <button id="scanBtn">Scan Nearby</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="list" id="deviceList">
+      <div style="color:var(--muted)">No devices yet. Click “Scan Nearby”.</div>
+    </div>
+
+    <div id="status" class="status" aria-live="polite"></div>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
