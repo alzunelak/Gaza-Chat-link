@@ -1,200 +1,139 @@
-import React, { useEffect, useState } from "react";
-import {
-  SafeAreaView,
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
-  PermissionsAndroid,
-  Platform,
-  KeyboardAvoidingView,
-} from "react-native";
-import { NativeModules, NativeEventEmitter } from "react-native";
+// app.js — simple Web Bluetooth demo (module)
+const scanBtn = document.getElementById('scanBtn');
+const list = document.getElementById('deviceList');
+const status = document.getElementById('status');
 
-const { BluetoothModule } = NativeModules;
-const btEvents = new NativeEventEmitter(BluetoothModule);
+const devicesMap = new Map(); // address -> device info
 
-export default function App() {
-  const [devices, setDevices] = useState([]);
-  const [connected, setConnected] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [serverStarted, setServerStarted] = useState(false);
-
-  useEffect(() => {
-    requestPermissions();
-
-    // Event listeners from native
-    const foundSub = btEvents.addListener("onDeviceFound", (device) => {
-      setDevices((prev) => {
-        if (prev.find((d) => d.address === device.address)) return prev;
-        return [...prev, device];
-      });
-    });
-
-    const connSub = btEvents.addListener("onConnectionState", (state) => {
-      if (state.state === "connected") {
-        setConnected(true);
-      } else if (state.state === "disconnected") {
-        setConnected(false);
-      }
-    });
-
-    const msgSub = btEvents.addListener("onMessageReceived", (msg) => {
-      setMessages((prev) => [...prev, { from: msg.from, text: msg.message }]);
-    });
-
-    return () => {
-      foundSub.remove();
-      connSub.remove();
-      msgSub.remove();
-      BluetoothModule.destroy();
+function renderDevices() {
+  if (devicesMap.size === 0) {
+    list.innerHTML = `<div style="color:var(--muted)">No devices yet. Click “Scan Nearby”.</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  for (const [id, info] of devicesMap) {
+    const div = document.createElement('div');
+    div.className = 'device';
+    div.innerHTML = `
+      <div class="name">${info.name || 'Unnamed device'}</div>
+      <div class="id">${id}</div>
+      <div style="margin-top:8px">
+        <button data-id="${id}" class="connect">Connect</button>
+        <button data-id="${id}" class="disconnect" style="margin-left:8px">Disconnect</button>
+      </div>
+      <div class="device-status" id="status-${id}" style="margin-top:8px;color:var(--muted)"></div>
+    `;
+    list.appendChild(div);
+  }
+  // attach handlers
+  list.querySelectorAll('.connect').forEach(b => {
+    b.onclick = async (e) => {
+      const id = e.currentTarget.dataset.id;
+      await connectDevice(id);
     };
-  }, []);
-
-  const requestPermissions = async () => {
-    if (Platform.OS === "android") {
-      await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-      ]);
-    }
-  };
-
-  const scanNearby = async () => {
-    setDevices([]);
-    await BluetoothModule.startScan();
-  };
-
-  const connectToDevice = async (device) => {
-    await BluetoothModule.connect(device.address);
-  };
-
-  const startServer = async () => {
-    await BluetoothModule.startServer();
-    setServerStarted(true);
-  };
-
-  const sendMessage = async () => {
-    if (input.trim().length === 0) return;
-    await BluetoothModule.sendMessage(input);
-    setMessages((prev) => [...prev, { from: "Me", text: input }]);
-    setInput("");
-  };
-
-  return (
-    <SafeAreaView style={styles.container}>
-      {!connected ? (
-        <View style={{ flex: 1 }}>
-          <TouchableOpacity style={styles.btn} onPress={scanNearby}>
-            <Text style={styles.btnText}>Scan Nearby Devices</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: "#ff9900" }]}
-            onPress={startServer}
-          >
-            <Text style={styles.btnText}>
-              {serverStarted ? "Server Running..." : "Start Server"}
-            </Text>
-          </TouchableOpacity>
-
-          <FlatList
-            data={devices}
-            keyExtractor={(item) => item.address}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.deviceItem}
-                onPress={() => connectToDevice(item)}
-              >
-                <Text style={styles.deviceName}>{item.name}</Text>
-                <Text style={styles.deviceId}>{item.address}</Text>
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <Text style={{ color: "#888", marginTop: 20, textAlign: "center" }}>
-                No devices found
-              </Text>
-            }
-          />
-        </View>
-      ) : (
-        <KeyboardAvoidingView style={{ flex: 1 }}>
-          <FlatList
-            data={messages}
-            keyExtractor={(_, i) => i.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.msgBubble}>
-                <Text style={{ color: "#fff" }}>
-                  {item.from}: {item.text}
-                </Text>
-              </View>
-            )}
-          />
-
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              value={input}
-              onChangeText={setInput}
-              placeholder="Type message..."
-              placeholderTextColor="#777"
-            />
-            <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
-              <Text style={{ color: "#fff" }}>Send</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      )}
-    </SafeAreaView>
-  );
+  });
+  list.querySelectorAll('.disconnect').forEach(b => {
+    b.onclick = async (e) => {
+      const id = e.currentTarget.dataset.id;
+      await disconnectDevice(id);
+    };
+  });
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000", padding: 10 },
-  btn: {
-    backgroundColor: "#25d366",
-    padding: 12,
-    borderRadius: 8,
-    marginVertical: 10,
-    alignItems: "center",
-  },
-  btnText: { color: "#fff", fontWeight: "bold" },
-  deviceItem: {
-    padding: 12,
-    borderBottomColor: "#333",
-    borderBottomWidth: 1,
-  },
-  deviceName: { color: "#fff", fontWeight: "bold" },
-  deviceId: { color: "#ccc", fontSize: 12 },
-  msgBubble: {
-    backgroundColor: "#333",
-    marginVertical: 4,
-    padding: 10,
-    borderRadius: 6,
-  },
-  inputRow: {
-    flexDirection: "row",
-    padding: 10,
-    borderTopColor: "#333",
-    borderTopWidth: 1,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: "#111",
-    color: "#fff",
-    padding: 10,
-    borderRadius: 6,
-  },
-  sendBtn: {
-    backgroundColor: "#25d366",
-    padding: 12,
-    borderRadius: 6,
-    marginLeft: 8,
-  },
-});
+// Helper: show status
+function setStatus(txt) {
+  status.textContent = txt || '';
+}
 
+// Start a user-initiated device chooser, add chosen device to list
+async function startScan() {
+  if (!navigator.bluetooth) {
+    setStatus('Web Bluetooth API not supported in this browser.');
+    return;
+  }
+  setStatus('Opening device chooser...');
+  try {
+    // Show system chooser. acceptAllDevices shows all devices; change if you need filters.
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ['battery_service'] // optional
+    });
 
+    // Add to our map
+    devicesMap.set(device.id, {
+      id: device.id,
+      name: device.name,
+      device, // keep reference
+      server: null,
+      characteristics: {}
+    });
+    renderDevices();
+    setStatus('Device selected — click Connect to connect.');
+    
+    // optional: listen for gattserverdisconnected event
+    device.addEventListener('gattserverdisconnected', () => {
+      const el = document.getElementById(`status-${device.id}`);
+      if (el) el.textContent = 'Disconnected';
+      setStatus(`Disconnected: ${device.name || device.id}`);
+    });
+
+  } catch (err) {
+    console.error(err);
+    setStatus('Chooser closed or error: ' + (err.message || err));
+  }
+}
+
+// Connect to a device (GATT)
+async function connectDevice(id) {
+  const info = devicesMap.get(id);
+  if (!info) { setStatus('Device not found'); return; }
+  const device = info.device;
+  setStatus(`Connecting to ${info.name || id}...`);
+  try {
+    const server = await device.gatt.connect();
+    info.server = server;
+    setStatus(`Connected to ${info.name || id}`);
+    const el = document.getElementById(`status-${id}`);
+    if (el) el.textContent = 'Connected';
+
+    // Example: read battery level if service available
+    try {
+      const service = await server.getPrimaryService('battery_service');
+      const char = await service.getCharacteristic('battery_level');
+      const val = await char.readValue();
+      const battery = val.getUint8(0);
+      const s = document.getElementById(`status-${id}`);
+      if (s) s.textContent = `Battery: ${battery}%`;
+    } catch (e) {
+      // battery not available — ignore
+    }
+
+  } catch (err) {
+    console.error(err);
+    setStatus('Connection failed: ' + (err.message || err));
+    const el = document.getElementById(`status-${id}`);
+    if (el) el.textContent = 'Connection failed';
+  }
+}
+
+// Disconnect
+async function disconnectDevice(id) {
+  const info = devicesMap.get(id);
+  if (!info) return;
+  try {
+    if (info.server && info.server.connected) {
+      info.server.disconnect();
+    } else if (info.device && info.device.gatt && info.device.gatt.connected) {
+      info.device.gatt.disconnect();
+    }
+    setStatus(`Disconnected ${info.name || id}`);
+    const el = document.getElementById(`status-${id}`);
+    if (el) el.textContent = 'Disconnected';
+  } catch (e) {
+    console.error(e);
+    setStatus('Error disconnecting: ' + (e.message || e));
+  }
+}
+
+scanBtn.addEventListener('click', startScan);
+renderDevices();
