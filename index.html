@@ -1,12 +1,75 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bluetooth Chat</title>
-  <div id="root"></div>
-  <script type="module" src="./app.js"></script>
+  <style>
+    body { margin:0; font-family:sans-serif; background:#000; color:#fff; }
+    .header { display:flex; justify-content:space-between; padding:15px; background:#111; }
+    .profile { display:flex; align-items:center; }
+    .avatar { width:40px; height:40px; border-radius:50%; background:#25d366; margin-right:10px; }
+    .connectionList { background:#111; margin:15px; border-radius:8px; padding:10px; }
+    .deviceItem { border-bottom:1px solid #333; padding:8px 0; }
+    .scanBtn { background:#25d366; padding:12px; margin:15px; border:none; border-radius:8px; color:#fff; font-weight:bold; }
+    .tabs { display:flex; justify-content:space-around; background:#111; padding:10px; }
+    .tabs button { background:none; border:none; color:#fff; font-weight:bold; }
+  </style>
 </head>
 <body>
+  <div class="header">
+    <div class="profile">
+      <div class="avatar"></div>
+      <span id="username">User</span>
+    </div>
+    <button>My QR</button>
+    <button>⋮</button>
+  </div>
+
+  <div class="connectionList">
+    <b>Connection List</b>
+    <div id="deviceList"></div>
+  </div>
+
+  <div style="text-align:center; margin-top:20px;">
+    <span style="color:#ccc">No contacts yet. Add friends to start messaging.</span>
+  </div>
+
+  <button class="scanBtn" onclick="scanNearby()">Scan Nearby Devices</button>
+
+  <div class="tabs">
+    <button>Chat</button>
+    <button>Group</button>
+    <button>Call</button>
+  </div>
+
+<script>
+  // IndexedDB for saving username
+  const DB_NAME = "bluetoothChatDB", STORE_NAME = "profile";
+  function loadUsername() {
+    const open = indexedDB.open(DB_NAME, 1);
+    open.onupgradeneeded = () => open.result.createObjectStore(STORE_NAME, { keyPath:"id" });
+    open.onsuccess = () => {
+      const db = open.result;
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const req = tx.objectStore(STORE_NAME).get("username");
+      req.onsuccess = () => { if(req.result) document.getElementById("username").innerText = req.result.value; };
+    };
+  }
+  loadUsername();
+
+  async function scanNearby() {
+    try {
+      const device = await navigator.bluetooth.requestDevice({ acceptAllDevices:true });
+      const list = document.getElementById("deviceList");
+      const div = document.createElement("div");
+      div.className = "deviceItem";
+      div.innerHTML = `<div>${device.name || "Unnamed Device"}</div><div>${device.id}</div>`;
+      list.appendChild(div);
+    } catch(err) {
+      console.error("Scan error:", err);
+    }
+  }
+</script>
 </body>
 </html>
