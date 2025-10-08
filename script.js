@@ -1,4 +1,4 @@
-// ===== Racing Game Script.js (Final Enhanced) =====
+// ===== Racing Game Script.js =====
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -42,15 +42,11 @@ let countdownActive = false;
 let keys = {};
 let smokeParticles = [];
 let enginePlaying = false;
-let fireTimer = 0;
 
-// Lanes setup
-const lanes = [80, 180, 280];
-
-// Spawn enemy in one lane
+// Spawn enemies
 function spawnEnemy() {
-  const laneIndex = Math.floor(Math.random() * lanes.length);
-  const x = lanes[laneIndex];
+  const lane = Math.floor(Math.random() * 3);
+  const x = 90 + lane * 90;
   const y = -120;
   const img = Math.random() > 0.5 ? enemy1 : enemy2;
   enemies.push({ x, y, width: 60, height: 100, speed: 4, img });
@@ -78,19 +74,29 @@ function startCountdown() {
     count--;
     if (count > 0) {
       countText.textContent = count;
-    } else if (count === 0) {
-      countText.textContent = "GO!";
     } else {
       clearInterval(interval);
       countOverlay.style.display = "none";
       countdownActive = false;
       gameActive = true;
-      driveSound.play();
-      fadeSoundIn();
       gameLoop();
     }
   }, 1000);
 }
+
+// Controls
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+document.getElementById("btnUp").onmousedown = () => keys["ArrowUp"] = true;
+document.getElementById("btnDown").onmousedown = () => keys["ArrowDown"] = true;
+document.getElementById("btnLeft").onmousedown = () => keys["ArrowLeft"] = true;
+document.getElementById("btnRight").onmousedown = () => keys["ArrowRight"] = true;
+
+document.getElementById("btnUp").onmouseup = () => keys["ArrowUp"] = false;
+document.getElementById("btnDown").onmouseup = () => keys["ArrowDown"] = false;
+document.getElementById("btnLeft").onmouseup = () => keys["ArrowLeft"] = false;
+document.getElementById("btnRight").onmouseup = () => keys["ArrowRight"] = false;
 
 // Start button
 overlayStart.onclick = () => {
@@ -99,45 +105,36 @@ overlayStart.onclick = () => {
   startCountdown();
 };
 
-// Controls
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
-
-// Smooth fade in/out
-function fadeSoundIn() {
-  enginePlaying = true;
-  let vol = 0;
-  const fade = setInterval(() => {
-    if (vol < 0.5) {
-      vol += 0.05;
-      driveSound.volume = vol;
-    } else clearInterval(fade);
-  }, 200);
-}
-
-function fadeSoundOut() {
-  let vol = driveSound.volume;
-  const fade = setInterval(() => {
-    if (vol > 0.05) {
-      vol -= 0.05;
-      driveSound.volume = vol;
-    } else {
-      clearInterval(fade);
-      driveSound.pause();
-      driveSound.currentTime = 0;
-      enginePlaying = false;
-    }
-  }, 200);
+// Smooth fade sound
+function setEngineSound(active) {
+  if (active && !enginePlaying) {
+    enginePlaying = true;
+    driveSound.play();
+    const fadeIn = setInterval(() => {
+      if (driveSound.volume < 0.5) driveSound.volume += 0.05;
+      else clearInterval(fadeIn);
+    }, 200);
+  } else if (!active && enginePlaying) {
+    const fadeOut = setInterval(() => {
+      if (driveSound.volume > 0.05) driveSound.volume -= 0.05;
+      else {
+        clearInterval(fadeOut);
+        driveSound.pause();
+        driveSound.currentTime = 0;
+        enginePlaying = false;
+      }
+    }, 200);
+  }
 }
 
 // Move player
 function movePlayer() {
   let moved = false;
-  if (keys["ArrowLeft"] && player.x > 50) {
+  if (keys["ArrowLeft"] && player.x > 60) {
     player.x -= player.speed;
     moved = true;
   }
-  if (keys["ArrowRight"] && player.x < canvas.width - player.width - 50) {
+  if (keys["ArrowRight"] && player.x < canvas.width - player.width - 60) {
     player.x += player.speed;
     moved = true;
   }
@@ -158,9 +155,10 @@ function movePlayer() {
       alpha: 0.6
     });
   }
+  setEngineSound(moved);
 }
 
-// Smoke behind moving cars
+// Smoke
 function drawSmoke() {
   for (let s of smokeParticles) {
     ctx.fillStyle = `rgba(160,160,160,${s.alpha})`;
@@ -181,7 +179,7 @@ function checkCollision(a, b) {
          a.y + a.height > b.y;
 }
 
-// Explosion/fire
+// Fire effect
 function drawExplosion(x, y) {
   ctx.fillStyle = "orange";
   ctx.beginPath();
@@ -202,31 +200,31 @@ function gameLoop() {
 
   movePlayer();
 
-  // Enemies move down lanes
   for (let e of enemies) {
     e.y += e.speed;
     ctx.drawImage(e.img, e.x, e.y, e.width, e.height);
   }
 
   if (Math.random() < 0.02) spawnEnemy();
-  enemies = enemies.filter(e => e.y < canvas.height + 50);
+  enemies = enemies.filter(e => e.y < canvas.height);
 
-  // Player
   ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
 
-  // Collision check
   enemies.forEach((e, i) => {
     if (checkCollision(player, e)) {
       crashSound.play();
       lives--;
       hudLives.textContent = "Lives: " + lives;
+      smokeParticles.push({ x: player.x + 30, y: player.y, size: 20, alpha: 1 });
       enemies.splice(i, 1);
 
       if (lives <= 0) {
-        fireTimer = 180;
-        fadeSoundOut();
+        driveSound.pause();
+        drawExplosion(player.x + 30, player.y + 30);
+        setTimeout(() => {
+          startOverlay.style.display = "flex";
+        }, 5000);
         gameActive = false;
-        showFireEffect();
       }
     }
   });
@@ -234,20 +232,4 @@ function gameLoop() {
   drawSmoke();
 
   if (gameActive) requestAnimationFrame(gameLoop);
-}
-
-// Fire effect after last crash
-function showFireEffect() {
-  let frames = 0;
-  const fireInterval = setInterval(() => {
-    ctx.fillStyle = "#2f2f2f";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
-    drawExplosion(player.x + 30, player.y + 50);
-    frames++;
-    if (frames > fireTimer) {
-      clearInterval(fireInterval);
-      startOverlay.style.display = "flex";
-    }
-  }, 30);
 }
