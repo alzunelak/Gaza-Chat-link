@@ -4,6 +4,15 @@ document.addEventListener("DOMContentLoaded", () => {
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+
+function beginStartSequence() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  startOverlay.style.display = "none"; // Hide overlay
+  countOverlay.style.display = "flex";
+  countdown = 3;
+  nextCount();
+}
+
 const overlayStart = document.getElementById("overlayStart");
 const startOverlay = document.getElementById("startOverlay");
 const countOverlay = document.getElementById("countOverlay");
