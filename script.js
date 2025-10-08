@@ -98,7 +98,7 @@ let bgOffset=0;
 
 // Car images
 const playerImg=new Image();
-playerImg.src="https://thumbs.dreamstime.com/b/yellow-car-top-view-vector-illustration-sedan-284618518.jpg";
+playerImg.src="https://www.pngitem.com/pimgs/m/8-88385_car-top-view-transparent-background-hd-png-download.png";
 const enemyImgs=[
   "https://tse2.mm.bing.net/th/id/OIP.b016nfhhpWQiH8-_zxiq0gHaHa?pid=Api&P=0&h=220",
   "https://tse2.mm.bing.net/th/id/OIP.tswnRHsV3-fUij9C6N1IaQHaHa?pid=Api&P=0&h=220"
