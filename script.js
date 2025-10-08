@@ -1,17 +1,8 @@
+// Ensure the DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
-// script.js — Fixed version for "Road Dodge — Race Start with Sounds"
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
-
-function beginStartSequence() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  startOverlay.style.display = "none"; // Hide overlay
-  countOverlay.style.display = "flex";
-  countdown = 3;
-  nextCount();
-}
 
 const overlayStart = document.getElementById("overlayStart");
 const startOverlay = document.getElementById("startOverlay");
@@ -55,7 +46,8 @@ function beep(freq, duration = 200) {
   osc.stop(audioCtx.currentTime + duration / 1000);
 }
 
-overlayStart.addEventListener("click", () => beginStartSequence());
+// Start button
+overlayStart.addEventListener("click", beginStartSequence);
 
 function beginStartSequence() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -208,3 +200,5 @@ function moveCar(key) {
       break;
   }
 }
+
+});
