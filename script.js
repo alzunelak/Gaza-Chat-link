@@ -32,9 +32,15 @@ let player = {
   img: new Image(),
   speed: 5,
 };
-player.img.src = "images/player.png";
 
-let enemyImages = ["images/enemy1.png", "images/enemy2.png"].map(src => {
+// ✅ Player car image
+player.img.src = "https://raw.githubusercontent.com/alzunelak/Gaza-Chat-link/refs/heads/main/images/player.png";
+
+// ✅ Enemy car images
+let enemyImages = [
+  "https://raw.githubusercontent.com/alzunelak/Gaza-Chat-link/refs/heads/main/images/enemy1.png",
+  "https://raw.githubusercontent.com/alzunelak/Gaza-Chat-link/refs/heads/main/images/enemy2.png"
+].map(src => {
   const img = new Image();
   img.src = src;
   return img;
@@ -172,7 +178,7 @@ function winGame() {
   location.reload();
 }
 
-// keyboard
+// keyboard controls
 window.addEventListener("keydown", e => {
   if (e.key === "ArrowLeft") keys.left = true;
   if (e.key === "ArrowRight") keys.right = true;
