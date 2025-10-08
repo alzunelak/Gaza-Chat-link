@@ -22,80 +22,63 @@ canvas{display:block;border-radius:10px;box-shadow:0 14px 36px rgba(0,0,0,.6);ba
 .controls-grid{width:320px;height:90px;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;pointer-events:auto}
 .ctrl-btn{background:rgba(255,255,255,0.06);border-radius:10px;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;font-size:20px;color:var(--ui);font-weight:800;cursor:pointer}
 .ctrl-empty{background:transparent}
-#startOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.78);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 80;
-  pointer-events: auto;
-}
-.panel {
-  background: linear-gradient(#111,#0b0b0b);
-  padding: 18px;
-  border-radius: 12px;
-  text-align: center;
-  color: var(--ui);
-  width: 320px;
-}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:80;pointer-events:auto;}
+.panel{background:linear-gradient(#111,#0b0b0b);padding:18px;border-radius:12px;text-align:center;color:var(--ui);width:320px}
 .count{font-size:72px;font-weight:900;color:var(--accent);margin:6px 0}
 .footer-note{font-size:12px;opacity:.8;margin-top:8px}
 @media(max-width:760px){ .wrap{padding:8px} canvas{width:92vw;height:calc(92vw*1.52)} .hud-panel{font-size:13px} }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Road Dodge </h1>
+<div class="wrap">
+  <h1>Road Dodge</h1>
 
-    <div class="game-area" id="gameArea">
-      <canvas id="game" width="420" height="640" tabindex="0" aria-label="Road Dodge canvas"></canvas>
+  <div class="game-area" id="gameArea">
+    <canvas id="game" width="420" height="640" tabindex="0" aria-label="Road Dodge canvas"></canvas>
 
-      <!-- HUD -->
-      <div class="hud-top">
-        <div class="hud-panel" id="hudPanel">
-          <div id="hudScore">Score: 0</div>
-          <div id="hudLives">Lives: 3</div>
-          <div id="hudTimer">Time: 45</div>
-        </div>
-      </div>
-
-      <!-- Controls -->
-      <div class="road-controls" id="roadControls">
-        <div class="controls-grid" id="controlsGrid">
-          <div class="ctrl-btn ctrl-empty" style="visibility:hidden"></div>
-          <div class="ctrl-btn" id="btnUp">▲</div>
-          <div class="ctrl-btn ctrl-empty" style="visibility:hidden"></div>
-          <div class="ctrl-btn" id="btnLeft">◀</div>
-          <div class="ctrl-btn" id="btnDown">▼</div>
-          <div class="ctrl-btn" id="btnRight">▶</div>
-        </div>
+    <!-- HUD -->
+    <div class="hud-top">
+      <div class="hud-panel" id="hudPanel">
+        <div id="hudScore">Score: 0</div>
+        <div id="hudLives">Lives: 3</div>
+        <div id="hudTimer">Time: 45</div>
       </div>
     </div>
 
-    <div class="footer-note">Tip: replace fallback SVGs by placing Images/player.png and Images/enemy1.png / enemy2.png</div>
-  </div>
-
-  <!-- Start Overlay -->
-  <div class="overlay" id="startOverlay">
-    <div class="panel">
-      <h2>Road Dodge — Race Start</h2>
-      <p class="small">Tap Start to allow audio, cars will line up, then countdown</p>
-      <div style="margin-top:12px">
-        <button id="overlayStart" style="padding:10px 18px;font-size:18px">Start Race</button>
+    <!-- Controls -->
+    <div class="road-controls" id="roadControls">
+      <div class="controls-grid" id="controlsGrid" aria-hidden="false">
+        <div class="ctrl-btn ctrl-empty" style="visibility:hidden"></div>
+        <div class="ctrl-btn" id="btnUp">▲</div>
+        <div class="ctrl-btn ctrl-empty" style="visibility:hidden"></div>
+        <div class="ctrl-btn" id="btnLeft">◀</div>
+        <div class="ctrl-btn" id="btnDown">▼</div>
+        <div class="ctrl-btn" id="btnRight">▶</div>
       </div>
     </div>
   </div>
 
-  <!-- Countdown Overlay -->
-  <div class="overlay" id="countOverlay" style="display:none">
-    <div class="panel">
-      <div class="count" id="countText">3</div>
-      <div class="small">Get ready</div>
+  <div class="footer-note">Tip: replace fallback SVGs by placing Images/player.png and Images/enemy1.png / enemy2.png</div>
+</div>
+
+<!-- Overlays -->
+<div class="overlay" id="startOverlay">
+  <div class="panel">
+    <h2>Road Dodge — Race Start</h2>
+    <p class="small">Tap Start to allow audio, cars will line up, then countdown</p>
+    <div style="margin-top:12px">
+      <button id="btnStartRace" style="padding:10px 18px;font-size:18px">Start Race</button>
     </div>
   </div>
+</div>
 
-  <script src="script.js"></script>
+<div class="overlay" id="countOverlay" style="display:none">
+  <div class="panel">
+    <div class="count" id="countText">3</div>
+    <div class="small">Get ready</div>
+  </div>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
