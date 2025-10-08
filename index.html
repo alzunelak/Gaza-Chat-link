@@ -1,4 +1,4 @@
-the background is okay have a look at start race not working index code <!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -22,7 +22,20 @@ canvas{display:block;border-radius:10px;box-shadow:0 14px 36px rgba(0,0,0,.6);ba
 .controls-grid{width:320px;height:90px;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;pointer-events:auto}
 .ctrl-btn{background:rgba(255,255,255,0.06);border-radius:10px;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;font-size:20px;color:var(--ui);font-weight:800;cursor:pointer}
 .ctrl-empty{background:transparent}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:80}
+
+#startOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  pointer-events: auto;
+}
+
+
+
 .panel{background:linear-gradient(#111,#0b0b0b);padding:18px;border-radius:12px;text-align:center;color:var(--ui);width:320px}
 .count{font-size:72px;font-weight:900;color:var(--accent);margin:6px 0}
 .footer-note{font-size:12px;opacity:.8;margin-top:8px}
@@ -56,11 +69,7 @@ canvas{display:block;border-radius:10px;box-shadow:0 14px 36px rgba(0,0,0,.6);ba
           <div class="ctrl-btn" id="btnRight">▶</div>
         </div>
       </div>
-    </div>
-
-    <div class="footer-note">Tip: replace fallback SVGs by placing Images/player.png and Images/enemy1.png / enemy2.png</div>
-  </div>
-
+    
   <!-- overlays -->
   <div class="overlay" id="startOverlay">
     <div class="panel">
@@ -82,3 +91,4 @@ canvas{display:block;border-radius:10px;box-shadow:0 14px 36px rgba(0,0,0,.6);ba
   <script src="script.js"></script>
 </body>
 </html>
+
