@@ -1,4 +1,4 @@
-<script>
+
 /* Full game:
  - start grid: all cars (player + opponents) line up across a line at same Y
  - countdown with beep sounds
@@ -399,4 +399,4 @@ resetAll();
 draw();
 canvas.addEventListener('click', ()=> canvas.focus());
 
-</script>
+
