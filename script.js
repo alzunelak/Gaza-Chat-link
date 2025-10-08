@@ -1,11 +1,8 @@
-/* Full JS: engine sound + smoke particles + 5s fire-on-game-over
-   Works with the HTML you shared (canvas id="game", overlayStart id="overlayStart",
-   countOverlay/countText, HUD ids: hudScore/hudLives/hudTimer, control buttons btnUp/Down/Left/Right).
-*/
+/* Full JS: engine sound + smoke particles + 5s fire-on-game-over */
 
 // ---------- Sound Engine (improved) ----------
 class SoundEngine {
-  constructor() { this.ctx = null; this.engineOsc = null; this.engineGain = null; this.engineFilter = null; }
+  constructor() { this.ctx = null; this.engineOsc = null; this.engineGain = null; }
   ensure() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
   beep(freq = 880, time = 0.12, when = 0) {
     this.ensure();
@@ -18,30 +15,33 @@ class SoundEngine {
     g.gain.exponentialRampToValueAtTime(0.001, t + time);
     o.start(t); o.stop(t + time + 0.02);
   }
-
   startEngine() {
     this.ensure();
     if (this.engineOsc) return;
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
+    // add a little lowpass to soften the sawtooth
     const lp = this.ctx.createBiquadFilter();
     lp.type = 'lowpass'; lp.frequency.value = 1200;
     o.type = 'sawtooth'; o.frequency.value = 80;
-    g.gain.value = 0.004;
+    g.gain.value = 0.004; // base volume
     o.connect(g); g.connect(lp); lp.connect(this.ctx.destination);
     o.start();
     this.engineOsc = o; this.engineGain = g; this.engineFilter = lp;
   }
-
   setEngineIntensity(i) {
+    // i: 0..1 -> change pitch + volume
     if (!this.engineGain || !this.engineOsc) return;
-    i = Math.max(0, Math.min(1, i));
-    const targetGain = 0.0015 + 0.01 * i; // safe audible range
-    this.engineGain.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + 0.05);
-    this.engineOsc.frequency.linearRampToValueAtTime(70 + i * 350, this.ctx.currentTime + 0.05);
+    const clamp = v => Math.max(0, Math.min(1, v));
+    i = clamp(i);
+    // volume: small base + scaled
+    const target = 0.002 + 0.01 * i;
+    this.engineGain.gain.linearRampToValueAtTime(target, this.ctx.currentTime + 0.05);
+    // pitch
+    this.engineOsc.frequency.linearRampToValueAtTime(70 + i * 300, this.ctx.currentTime + 0.05);
+    // filter opens with intensity
     if (this.engineFilter) this.engineFilter.frequency.linearRampToValueAtTime(700 + i * 2200, this.ctx.currentTime + 0.05);
   }
-
   stopEngine() {
     if (!this.engineOsc) return;
     try { this.engineOsc.stop(); } catch (e) {}
@@ -50,38 +50,32 @@ class SoundEngine {
     try { this.engineFilter.disconnect(); } catch (e) {}
     this.engineOsc = null; this.engineGain = null; this.engineFilter = null;
   }
-
   crash() {
     this.ensure();
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.18);
+    const bufferSize = this.ctx.sampleRate * 0.25;
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.02));
     const src = this.ctx.createBufferSource(); src.buffer = buffer;
-    const g = this.ctx.createGain(); g.gain.value = 0.9;
+    const g = this.ctx.createGain(); g.gain.value = 0.8;
     src.connect(g); g.connect(this.ctx.destination); src.start();
   }
-
   victory() {
     this.beep(880, 0.12, 0);
-    setTimeout(()=> this.beep(1046.5, 0.12, 0.15), 0);
-    setTimeout(()=> this.beep(1318.5, 0.12, 0.33), 0);
+    setTimeout(()=>this.beep(1046.5, 0.12, 0.15), 0);
+    setTimeout(()=>this.beep(1318.5, 0.12, 0.3), 0);
   }
 }
-
 const sound = new SoundEngine();
 
 // ---------- DOM / Canvas ----------
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-
 const hudScore = document.getElementById('hudScore');
 const hudLives = document.getElementById('hudLives');
 const hudTimer = document.getElementById('hudTimer');
-
 const startOverlay = document.getElementById('startOverlay');
 const startBtn = document.getElementById('overlayStart');
-
 const countOverlay = document.getElementById('countOverlay');
 const countText = document.getElementById('countText');
 
@@ -99,20 +93,18 @@ const CAR_W = 52, CAR_H = 96;
 let score = 0, lives = 3, totalTime = 45, timeLeft = totalTime;
 let running = false, paused = false, elapsed = 0, spawnTimer = 0;
 let baseSpeed = 2.0, speedMultiplier = 1;
-const enemies = [];
-const keys = { left:false, right:false, up:false, down:false };
+const enemies = []; const keys = { left:false, right:false, up:false, down:false };
 let bgOffset = 0;
 
 // particle systems
-const smokeParticles = []; // exhaust for all moving cars (player + enemies)
-const fireParticles = [];  // heavy fire for game-over
+const smokeParticles = []; // exhaust while driving
+const fireParticles = [];  // fire + heavy smoke at end
 let inFireMode = false;
 let fireEndAt = 0;
 
-// images (use provided URLs)
+// images
 const playerImg = new Image();
 playerImg.src = "https://thumbs.dreamstime.com/b/yellow-car-top-view-vector-illustration-sedan-284618518.jpg";
-
 const enemyImgs = [
   "https://tse2.mm.bing.net/th/id/OIP.b016nfhhpWQiH8-_zxiq0gHaHa?pid=Api&P=0&h=220",
   "https://tse2.mm.bing.net/th/id/OIP.tswnRHsV3-fUij9C6N1IaQHaHa?pid=Api&P=0&h=220"
@@ -120,16 +112,14 @@ const enemyImgs = [
 
 // player
 const player = { x: 0, y: CANVAS_H - CAR_H - 16, w: CAR_W, h: CAR_H, speed: 6 };
-player.x = ROAD_X + Math.floor(LANE_COUNT/2) * LANE_W + (LANE_W - CAR_W)/2;
+player.x = ROAD_X + ROAD_W/2 - CAR_W/2;
 
-// ---------- Input (keyboard + on-screen touch/pointer) ----------
+// ---------- Input ----------
 window.addEventListener('keydown', e => {
   if (['ArrowLeft','a','A'].includes(e.key)) keys.left = true;
   if (['ArrowRight','d','D'].includes(e.key)) keys.right = true;
   if (['ArrowUp','w','W'].includes(e.key)) keys.up = true;
   if (['ArrowDown','s','S'].includes(e.key)) keys.down = true;
-  // Resume audio context on first interaction if needed
-  if (sound.ctx && sound.ctx.state === 'suspended') sound.ctx.resume();
 });
 window.addEventListener('keyup', e => {
   if (['ArrowLeft','a','A'].includes(e.key)) keys.left = false;
@@ -137,98 +127,104 @@ window.addEventListener('keyup', e => {
   if (['ArrowUp','w','W'].includes(e.key)) keys.up = false;
   if (['ArrowDown','s','S'].includes(e.key)) keys.down = false;
 });
-
-// helper to bind mobile on-screen controls
-function bindButton(el, onPress, onRelease){
-  if(!el) return;
-  ['pointerdown','touchstart','mousedown'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); onPress(); }));
-  ['pointerup','pointercancel','touchend','mouseup','mouseleave'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); onRelease(); }));
+function bindButton(el, press, release) {
+  ['pointerdown','touchstart','mousedown'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); press(); }));
+  ['pointerup','touchend','mouseup','mouseleave','pointercancel'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); release(); }));
 }
-bindButton(btnLeft, ()=>keys.left=true, ()=>keys.left=false);
-bindButton(btnRight, ()=>keys.right=true, ()=>keys.right=false);
-bindButton(btnUp, ()=>keys.up=true, ()=>keys.up=false);
-bindButton(btnDown, ()=>keys.down=true, ()=>keys.down=false);
+if (btnLeft && btnRight && btnUp && btnDown) {
+  bindButton(btnLeft, ()=>keys.left=true, ()=>keys.left=false);
+  bindButton(btnRight, ()=>keys.right=true, ()=>keys.right=false);
+  bindButton(btnUp, ()=>keys.up=true, ()=>keys.up=false);
+  bindButton(btnDown, ()=>keys.down=true, ()=>keys.down=false);
+}
 
 // ---------- Helpers ----------
 function laneCenter(i){ return ROAD_X + i*LANE_W + (LANE_W - CAR_W)/2; }
 function collides(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
-function rand(min,max){ return min + Math.random() * (max - min); }
+function rand(min,max){ return min + Math.random() * (max-min); }
 
-// ---------- Enemies ----------
+// spawn enemy
 function spawnEnemy(){
   const lane = Math.floor(Math.random() * LANE_COUNT);
   const x = laneCenter(lane);
-  const y = -CAR_H - Math.random() * 160;
+  const y = -CAR_H - Math.random() * 120;
   const img = enemyImgs[Math.floor(Math.random() * enemyImgs.length)];
-  // give each enemy a lane fixed x and slight speed variation
-  enemies.push({ x, y, w: CAR_W, h: CAR_H, img, speed: 1.6 + Math.random() * 1.2, lane });
+  enemies.push({ x, y, w: CAR_W, h: CAR_H, img, baseSpeed: baseSpeed + Math.random()*0.6 });
 }
 
 // ---------- Particles ----------
+// smoke particle: {x,y,vx,vy,size,alpha}
 function spawnSmoke(x,y,strength=1){
   smokeParticles.push({
-    x: x + rand(-6,6),
-    y: y + rand(-4,4),
+    x: x + rand(-8,8),
+    y: y + rand(-6,6),
     vx: rand(-0.2,0.2),
-    vy: -0.2 * strength + rand(-0.4,0),
-    size: rand(4,10) * strength,
-    alpha: rand(0.45,0.95)
+    vy: rand(-0.4, -1.0) * strength,
+    size: rand(6,12) * strength,
+    alpha: rand(0.6,1)
   });
 }
 function spawnFire(x,y){
-  for (let i = 0; i < 20; i++){
+  // spawn a cluster of fire + thick smoke
+  for (let i=0;i<22;i++){
     fireParticles.push({
-      x: x + rand(-16, 16),
-      y: y + rand(-8, 8),
-      vx: rand(-1.2,1.2),
-      vy: rand(-2.8, -0.8),
-      size: rand(6,20),
-      life: rand(900,2500),
+      x: x + rand(-12, 12),
+      y: y + rand(-6, 6),
+      vx: rand(-0.8,0.8),
+      vy: rand(-1.0, -3.0),
+      size: rand(6,18),
+      life: rand(800,1600),
       age: 0,
-      type: (Math.random() < 0.45 ? 'flame' : 'smoke')
+      type: (Math.random() < 0.4 ? 'flame' : 'smoke') // more smoke than flame can be adjusted
     });
   }
 }
 
+// update particles
 function updateParticles(dt){
-  // update smokeParticles
-  for (let i = smokeParticles.length - 1; i >= 0; i--){
+  // smoke (exhaust)
+  for (let i = smokeParticles.length-1; i>=0; i--){
     const p = smokeParticles[i];
     p.x += p.vx * dt/16;
     p.y += p.vy * dt/16;
-    p.alpha -= 0.006 * dt/16;
-    p.size += 0.01 * dt/16;
+    p.alpha -= 0.004 * dt/16;
+    p.size += 0.02 * dt/16;
     if (p.alpha <= 0) smokeParticles.splice(i,1);
   }
-  // update fireParticles
-  for (let i = fireParticles.length - 1; i >= 0; i--){
+  // fireParticles
+  for (let i = fireParticles.length-1; i>=0; i--){
     const p = fireParticles[i];
     p.x += p.vx * dt/16;
     p.y += p.vy * dt/16;
     p.age += dt;
+    // flames fade faster
     if (p.type === 'flame') p.size *= 1 - 0.0006 * dt;
     else p.size *= 1 + 0.0008 * dt;
+    // alpha shrink
     p.alpha = Math.max(0, 1 - p.age / p.life);
     if (p.age >= p.life) fireParticles.splice(i,1);
   }
 }
 
-// ---------- Update (physics, spawn, collisions) ----------
+// ---------- Update ----------
+let lastSpawn = 0;
 function update(dt){
-  // handle in-fire-mode separately (still animate particles)
   if (!running && !inFireMode) return;
 
+  // if in fire mode we still want to animate fire particles until the timeout
   if (inFireMode) {
     updateParticles(dt);
+    // stop when fire time passed
     if (performance.now() >= fireEndAt) {
       inFireMode = false;
-      // reset and show overlay AFTER short delay
+      // reset state and show overlay
       sound.stopEngine();
-      setTimeout(()=>{
+      setTimeout(()=> {
         startOverlay.style.display = 'flex';
         hudLives.textContent = 'Lives: 3';
         hudScore.textContent = 'Score: 0';
         hudTimer.textContent = 'Time: ' + Math.ceil(totalTime);
+        // restore defaults
         score = 0; lives = 3; timeLeft = totalTime; baseSpeed = 2;
         enemies.length = 0; smokeParticles.length = 0; fireParticles.length = 0;
       }, 50);
@@ -236,7 +232,8 @@ function update(dt){
     return;
   }
 
-  // speed control via up/down
+  // normal running updates
+  // speed up/down with up/down
   if (keys.up) baseSpeed = Math.min(baseSpeed + 0.004 * dt, 8);
   if (keys.down) baseSpeed = Math.max(baseSpeed - 0.006 * dt, 1);
 
@@ -245,47 +242,40 @@ function update(dt){
   bgOffset += 220 * (dt / 1000) * speedMultiplier;
   if (bgOffset > 40) bgOffset -= 40;
 
-  // engine intensity based on baseSpeed
+  // engine intensity (0..1) based on baseSpeed
   const intensity = Math.min(1, (baseSpeed - 1) / 7);
   sound.setEngineIntensity(intensity);
 
-  // spawn player exhaust when player is "moving" (up pressed) OR lateral moving
-  const playerMoving = keys.up || keys.left || keys.right;
-  if (playerMoving && Math.random() < 0.32 * (baseSpeed/3)) {
+  // spawn some exhaust smoke behind the player when moving
+  // spawn rate scales with baseSpeed
+  if (Math.random() < 0.2 * (baseSpeed / 3)) {
     spawnSmoke(player.x + player.w/2, player.y + player.h - 6, Math.min(1.6, baseSpeed/3));
   }
 
-  // move player laterally (lane-constrained)
+  // lateral movement
   if (keys.left) player.x -= player.speed * (1 + (baseSpeed - 2) / 4);
   if (keys.right) player.x += player.speed * (1 + (baseSpeed - 2) / 4);
-
-  const leftBound = ROAD_X + 6;
-  const rightBound = ROAD_X + ROAD_W - player.w - 6;
+  const leftBound = ROAD_X + 6, rightBound = ROAD_X + ROAD_W - player.w - 6;
   if (player.x < leftBound) player.x = leftBound;
   if (player.x > rightBound) player.x = rightBound;
 
-  // spawn enemies based on dynamic interval
+  // spawn enemies dynamically
   spawnTimer += dt;
   const dynInt = Math.max(600, 1200 - elapsed * 0.05 - baseSpeed * 40);
   if (spawnTimer >= dynInt) { spawnTimer = 0; spawnEnemy(); }
 
-  // move enemies, spawn their exhaust while they move and check collisions
+  // move enemies and collisions
   for (let i = enemies.length - 1; i >= 0; i--){
     const e = enemies[i];
-    // enemies move steadily down; speed influenced by baseSpeed so race feels dynamic
-    e.y += (e.speed + speedMultiplier + baseSpeed * 0.28) * (dt / 16);
-
-    // enemy exhaust while moving
-    if (Math.random() < 0.14) spawnSmoke(e.x + e.w/2, e.y + e.h - 8, 0.8);
-
-    if (collides(player, e)) {
-      // collision: spawn immediate fire cluster at collision point, remove enemy, decrement life
-      spawnFire(player.x + player.w/2, player.y + player.h/2);
-      enemies.splice(i,1);
+    e.y += (1.8 + speedMultiplier + baseSpeed * 0.32) * (dt / 16);
+    if (collides(player, e)){
+      // on collision, spawn big smoke + reduce life, remove enemy
+      spawnFire(player.x + player.w/2, player.y + player.h/2); // small immediate fire/smoke
+      enemies.splice(i, 1);
       lives--; hudLives.textContent = 'Lives: ' + lives;
       sound.crash();
-      if (lives <= 0) {
-        // heavy fire mode: use last enemy coordinates as reference
+      if (lives <= 0){
+        // trigger heavy fire mode: both player & recent enemy on fire for 5s
         triggerFireMode(e);
         return;
       }
@@ -295,15 +285,14 @@ function update(dt){
     }
   }
 
-  // update particles
+  // update particles normally
   updateParticles(dt);
 
   // update time
   timeLeft -= dt/1000;
   if (timeLeft < 0) timeLeft = 0;
   hudTimer.textContent = 'Time: ' + Math.ceil(timeLeft);
-
-  if (timeLeft <= 0) {
+  if (timeLeft <= 0){
     running = false;
     sound.stopEngine();
     sound.victory();
@@ -324,109 +313,122 @@ function draw(){
   // lane stripes
   ctx.fillStyle = '#dedede';
   const stripeW = 8;
-  for (let i = 0; i < LANE_COUNT; i++){
+  for (let i=0;i<LANE_COUNT;i++){
     const sx = ROAD_X + i*LANE_W + LANE_W/2 - stripeW/2;
     for (let y = -40 + (bgOffset % 40); y < CANVAS_H + 40; y += 80) {
       ctx.fillRect(sx, y, stripeW, 40);
     }
   }
 
-  // draw smoke behind cars (behind vehicles)
+  // draw particles behind everything (smoke)
   for (const p of smokeParticles) {
     ctx.beginPath();
     ctx.fillStyle = `rgba(120,120,120,${Math.max(0, p.alpha)})`;
-    ctx.arc(p.x, p.y, Math.max(1, p.size), 0, Math.PI*2);
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
     ctx.fill();
   }
 
-  // draw enemies (each locked to its lane x)
+  // draw enemies
   for (const e of enemies) {
-    if (e.img && e.img.complete) {
+    // if image isn't loaded, fallback rect
+    try {
       ctx.drawImage(e.img, e.x, e.y, e.w, e.h);
-    } else {
-      ctx.fillStyle = '#c33';
-      ctx.fillRect(e.x, e.y, e.w, e.h);
+    } catch (err) {
+      ctx.fillStyle = '#c33'; ctx.fillRect(e.x, e.y, e.w, e.h);
     }
   }
 
   // draw player
-  if (playerImg && playerImg.complete) {
+  try {
     ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
-  } else {
-    ctx.fillStyle = '#ff0';
-    ctx.fillRect(player.x, player.y, player.w, player.h);
+  } catch (err) {
+    ctx.fillStyle = '#ff0'; ctx.fillRect(player.x, player.y, player.w, player.h);
   }
 
-  // draw fireParticles on top
+  // draw fireParticles (draw on top)
   for (const p of fireParticles) {
     if (p.type === 'flame') {
+      // bright orange/red
       const a = Math.max(0, 0.9 - p.age / p.life);
-      ctx.fillStyle = `rgba(255,${Math.floor(120 + 80 * Math.random())},0,${a})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, p.size * 0.6), 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(255,${Math.floor(120 + 100*Math.random())},0,${a})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, p.size*0.6), 0, Math.PI*2); ctx.fill();
     } else {
-      const a = Math.max(0, 0.75 - p.age / p.life);
-      ctx.fillStyle = `rgba(60,60,60,${a})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, p.size * 0.9), 0, Math.PI*2); ctx.fill();
+      // smoke
+      const a = Math.max(0, 0.8 - p.age / p.life);
+      ctx.fillStyle = `rgba(80,80,80,${a})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, p.size*0.9), 0, Math.PI*2); ctx.fill();
     }
   }
+
+  // optionally draw HUD overlays are DOM-based, so not here
 }
 
 // ---------- Fire end-mode ----------
 function triggerFireMode(lastEnemy){
+  // heavy fire + smoke for player & lastEnemy
   inFireMode = true;
   fireParticles.length = 0;
-
+  // spawn bursts around both vehicles for 5 seconds
   const px = player.x + player.w/2;
   const py = player.y + player.h/2;
-  const ex = (lastEnemy && lastEnemy.x) ? lastEnemy.x + lastEnemy.w/2 : player.x + player.w/2;
-  const ey = (lastEnemy && lastEnemy.y) ? lastEnemy.y + lastEnemy.h/2 : player.y + player.h/2;
+  const ex = (lastEnemy && lastEnemy.x) ? lastEnemy.x + lastEnemy.w/2 : player.x + 30;
+  const ey = (lastEnemy && lastEnemy.y) ? lastEnemy.y + lastEnemy.h/2 : player.y;
 
-  // stop engine + play crash noise
+  // stop engine immediately
   sound.stopEngine();
   sound.crash();
 
-  // initial big burst for both cars
-  for (let i = 0; i < 70; i++) {
+  // spawn initial cluster
+  for (let i=0;i<60;i++){
     fireParticles.push({
-      x: px + rand(-28,28),
-      y: py + rand(-12,12),
-      vx: rand(-1.6,1.6), vy: rand(-3.2,-0.6),
-      size: rand(6,24), life: rand(1400,3200), age: 0, type: (Math.random() < 0.5 ? 'flame' : 'smoke')
+      x: px + rand(-20,20),
+      y: py + rand(-10,10),
+      vx: rand(-1.2,1.2), vy: rand(-2.4,-0.8),
+      size: rand(6,20), life: rand(1600,3000), age: 0, type: (Math.random() < 0.5 ? 'flame' : 'smoke')
     });
     fireParticles.push({
-      x: ex + rand(-28,28),
-      y: ey + rand(-12,12),
-      vx: rand(-1.6,1.6), vy: rand(-3.2,-0.6),
-      size: rand(6,24), life: rand(1400,3200), age: 0, type: (Math.random() < 0.5 ? 'flame' : 'smoke')
+      x: ex + rand(-20,20),
+      y: ey + rand(-10,10),
+      vx: rand(-1.2,1.2), vy: rand(-2.8,-0.9),
+      size: rand(6,22), life: rand(1600,3000), age: 0, type: (Math.random() < 0.5 ? 'flame' : 'smoke')
     });
   }
 
-  // continuous bursts while fire mode active
+  // keep adding small bursts during duration
   const fireDuration = 5000; // 5 seconds
   fireEndAt = performance.now() + fireDuration;
+  // start a small interval to keep adding particles until time up
   const burstInterval = setInterval(()=>{
     if (!inFireMode) { clearInterval(burstInterval); return; }
-    for (let i=0;i<14;i++){
+    for (let i=0;i<12;i++) {
       fireParticles.push({
-        x: px + rand(-36,36), y: py + rand(-14,14),
-        vx: rand(-1.8,1.8), vy: rand(-3.0,-0.8),
-        size: rand(6,18), life: rand(1000,2400), age:0, type: (Math.random()<0.65 ? 'smoke' : 'flame')
+        x: px + rand(-26,26),
+        y: py + rand(-12,12),
+        vx: rand(-1.4,1.4), vy: rand(-2.6,-1.0),
+        size: rand(6,16), life: rand(1200,2400), age: 0, type: (Math.random()<0.6 ? 'smoke' : 'flame')
       });
       fireParticles.push({
-        x: ex + rand(-36,36), y: ey + rand(-14,14),
-        vx: rand(-1.8,1.8), vy: rand(-3.0,-0.8),
-        size: rand(6,18), life: rand(1000,2400), age:0, type: (Math.random()<0.65 ? 'smoke' : 'flame')
+        x: ex + rand(-26,26),
+        y: ey + rand(-12,12),
+        vx: rand(-1.4,1.4), vy: rand(-2.6,-1.0),
+        size: rand(6,16), life: rand(1200,2400), age: 0, type: (Math.random()<0.6 ? 'smoke' : 'flame')
       });
     }
-  }, 280);
+  }, 300);
+
+  // ensure loop still animates fire until end
+  requestAnimationFrame(function fireLoop(ts){
+    update(16); // small dt to keep particles updating
+    draw();
+    if (inFireMode) requestAnimationFrame(fireLoop);
+  });
 }
 
-// ---------- Main loop ----------
-let lastTS = 0;
+// ---------- Loop ----------
+let last = 0;
 function mainLoop(ts){
-  if (!lastTS) lastTS = ts;
-  const dt = Math.min(48, ts - lastTS);
-  lastTS = ts;
+  if (!last) last = ts;
+  const dt = Math.min(48, ts - last); last = ts; // clamp dt
   update(dt);
   draw();
   requestAnimationFrame(mainLoop);
@@ -435,7 +437,7 @@ requestAnimationFrame(mainLoop);
 
 // ---------- Start / Countdown / End ----------
 startBtn.addEventListener('click', () => {
-  // audio resume
+  // ensure audio allowed
   sound.ensure();
   if (sound.ctx && sound.ctx.state === 'suspended') sound.ctx.resume();
   sound.beep(880,0.12,0);
@@ -461,8 +463,8 @@ function startCountdown(){
         clearInterval(t);
         countOverlay.style.display = 'none';
         sound.startEngine();
-        running = true; elapsed = 0; spawnTimer = 0; lastTS = performance.now();
-      }, 600);
+        running = true; elapsed = 0; spawnTimer = 0; last = performance.now();
+      }, 700);
     }
   }, 1000);
 }
@@ -477,10 +479,11 @@ function endGame(win){
     hudLives.textContent = 'Lives: 3';
     hudScore.textContent = 'Score: 0';
     hudTimer.textContent = 'Time: ' + Math.ceil(totalTime);
+    // reset
     score = 0; lives = 3; timeLeft = totalTime; baseSpeed = 2;
     enemies.length = 0; smokeParticles.length = 0; fireParticles.length = 0;
   }, 1200);
 }
 
-// keep canvas focusable for keyboard input on click
+// small safety: focus canvas so keyboard works
 canvas.addEventListener('click', ()=> canvas.focus());
