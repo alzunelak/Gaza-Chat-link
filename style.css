@@ -1,0 +1,97 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #111;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+  font-family: sans-serif;
+}
+
+#gameContainer {
+  position: relative;
+}
+
+canvas {
+  background: url("images/road-bg.jpg") center/cover no-repeat;
+  display: block;
+  border-radius: 10px;
+}
+
+#hud {
+  position: absolute;
+  top: 8px;
+  width: 100%;
+  color: #fff;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-around;
+  font-size: 1.2em;
+  text-shadow: 0 0 3px #000;
+}
+
+#startOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+#startBtn {
+  padding: 15px 40px;
+  font-size: 1.5em;
+  border: none;
+  border-radius: 8px;
+  background: #ffcc00;
+  color: #000;
+  cursor: pointer;
+}
+
+#countOverlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0,0,0,0.5);
+}
+
+#countOverlay h1 {
+  font-size: 4em;
+  color: #fff;
+  text-shadow: 2px 2px 5px #000;
+}
+
+#controls {
+  position: absolute;
+  bottom: 15px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+#controls button {
+  width: 60px;
+  height: 60px;
+  font-size: 1.8em;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.6);
+  color: #000;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+#controls button:active {
+  transform: scale(0.9);
+  background: #ffcc00;
+}
