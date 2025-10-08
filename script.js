@@ -1,5 +1,3 @@
-/* Full JS: engine sound + smoke particles + 5s fire-on-game-over */
-
 // ---------- Sound Engine (improved) ----------
 class SoundEngine {
   constructor() { this.ctx = null; this.engineOsc = null; this.engineGain = null; }
