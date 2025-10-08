@@ -98,7 +98,7 @@ let bgOffset=0;
 
 // Car images
 const playerImg=new Image();
-playerImg.src="https://www.pngitem.com/pimgs/m/8-88385_car-top-view-transparent-background-hd-png-download.png";
+playerImg.src="https://i.pinimg.com/736x/4c/03/7f/4c037f9eebcc9e5b66863023999b11ae.jpg";
 const enemyImgs=[
   "https://tse2.mm.bing.net/th/id/OIP.b016nfhhpWQiH8-_zxiq0gHaHa?pid=Api&P=0&h=220",
   "https://tse2.mm.bing.net/th/id/OIP.tswnRHsV3-fUij9C6N1IaQHaHa?pid=Api&P=0&h=220"
