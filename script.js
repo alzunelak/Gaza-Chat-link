@@ -1,351 +1,249 @@
-/* Full JS: engine sound + smoke particles + 5s fire-on-game-over + all cars emit smoke */
+/* Full JS: Engine sound + colored smoke + fire-on-game-over */
 
-// ---------- Sound Engine (improved) ----------
+// ---------- Utility ----------
+function rand(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+// ---------- Sound Engine ----------
 class SoundEngine {
-  constructor() { this.ctx = null; this.engineOsc = null; this.engineGain = null; }
-  ensure() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
-  beep(freq = 880, time = 0.12, when = 0) {
-    this.ensure();
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    o.type = 'sine'; o.frequency.value = freq; g.gain.value = 0.001;
-    o.connect(g); g.connect(this.ctx.destination);
-    const t = this.ctx.currentTime + when;
-    g.gain.linearRampToValueAtTime(0.18, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, t + time);
-    o.start(t); o.stop(t + time + 0.02);
+  constructor() {
+    this.ctx = null;
+    this.engineOsc = null;
+    this.engineGain = null;
+  }
+  ensure() {
+    if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
   }
   startEngine() {
     this.ensure();
-    if (this.engineOsc) return;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    const lp = this.ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 1200;
-    o.type = 'sawtooth'; o.frequency.value = 80;
-    g.gain.value = 0.004;
-    o.connect(g); g.connect(lp); lp.connect(this.ctx.destination);
-    o.start();
-    this.engineOsc = o; this.engineGain = g; this.engineFilter = lp;
+    this.stopEngine();
+    const ctx = this.ctx;
+    this.engineOsc = ctx.createOscillator();
+    this.engineGain = ctx.createGain();
+    this.engineOsc.type = 'sawtooth';
+    this.engineOsc.frequency.value = 80;
+    this.engineGain.gain.value = 0.05;
+    this.engineOsc.connect(this.engineGain).connect(ctx.destination);
+    this.engineOsc.start();
   }
-  setEngineIntensity(i) {
-    if (!this.engineGain || !this.engineOsc) return;
-    const clamp = v => Math.max(0, Math.min(1, v));
-    i = clamp(i);
-    const target = 0.002 + 0.01 * i;
-    this.engineGain.gain.linearRampToValueAtTime(target, this.ctx.currentTime + 0.05);
-    this.engineOsc.frequency.linearRampToValueAtTime(70 + i * 300, this.ctx.currentTime + 0.05);
-    if (this.engineFilter) this.engineFilter.frequency.linearRampToValueAtTime(700 + i * 2200, this.ctx.currentTime + 0.05);
+  updateEngine(speed) {
+    if (!this.engineOsc) return;
+    this.engineOsc.frequency.setTargetAtTime(60 + speed * 25, this.ctx.currentTime, 0.05);
   }
   stopEngine() {
-    if (!this.engineOsc) return;
-    try { this.engineOsc.stop(); } catch (e) {}
-    try { this.engineOsc.disconnect(); } catch (e) {}
-    try { this.engineGain.disconnect(); } catch (e) {}
-    try { this.engineFilter.disconnect(); } catch (e) {}
-    this.engineOsc = null; this.engineGain = null; this.engineFilter = null;
+    if (this.engineOsc) {
+      this.engineOsc.stop();
+      this.engineOsc.disconnect();
+      this.engineGain.disconnect();
+      this.engineOsc = null;
+    }
   }
-  crash() {
+  beep(freq = 880, time = 0.12, when = 0) {
     this.ensure();
-    const bufferSize = this.ctx.sampleRate * 0.25;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.02));
-    const src = this.ctx.createBufferSource(); src.buffer = buffer;
-    const g = this.ctx.createGain(); g.gain.value = 0.8;
-    src.connect(g); g.connect(this.ctx.destination); src.start();
-  }
-  victory() {
-    this.beep(880, 0.12, 0);
-    setTimeout(()=>this.beep(1046.5, 0.12, 0.15), 0);
-    setTimeout(()=>this.beep(1318.5, 0.12, 0.3), 0);
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain).connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.1, ctx.currentTime + when);
+    osc.start(ctx.currentTime + when);
+    osc.stop(ctx.currentTime + when + time);
   }
 }
+
 const sound = new SoundEngine();
 
-// ---------- DOM / Canvas ----------
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const hudScore = document.getElementById('hudScore');
-const hudLives = document.getElementById('hudLives');
-const hudTimer = document.getElementById('hudTimer');
-const startOverlay = document.getElementById('startOverlay');
-const startBtn = document.getElementById('overlayStart');
-const countOverlay = document.getElementById('countOverlay');
-const countText = document.getElementById('countText');
+// ---------- Game Variables ----------
+let canvas = document.getElementById('game');
+let ctx = canvas.getContext('2d');
+let startOverlay = document.getElementById('start');
+let countOverlay = document.getElementById('count');
+let startBtn = document.getElementById('startBtn');
+let countText = document.getElementById('countNum');
 
-const btnUp = document.getElementById('btnUp');
-const btnDown = document.getElementById('btnDown');
-const btnLeft = document.getElementById('btnLeft');
-const btnRight = document.getElementById('btnRight');
+let running = false, paused = false;
+let player = { x: 140, y: 400, w: 40, h: 70, color: '#ff4444' };
+let enemies = [];
+let smokeParticles = [];
+let fireParticles = [];
 
-const CANVAS_W = canvas.width, CANVAS_H = canvas.height;
-const ROAD_X = 30, ROAD_W = CANVAS_W - 60;
-const LANE_COUNT = 3, LANE_W = ROAD_W / LANE_COUNT;
-const CAR_W = 52, CAR_H = 96;
-
-// ---------- Game state ----------
-let score = 0, lives = 3, totalTime = 45, timeLeft = totalTime;
-let running = false, paused = false, elapsed = 0, spawnTimer = 0;
-let baseSpeed = 2.0, speedMultiplier = 1;
-const enemies = []; const keys = { left:false, right:false, up:false, down:false };
-let bgOffset = 0;
-
-const smokeParticles = [];
-const fireParticles = [];
-let inFireMode = false;
+let score = 0, lives = 3, timeLeft = 60, totalTime = 60;
+let elapsed = 0, spawnTimer = 0;
+let baseSpeed = 2, speedMultiplier = 0;
 let fireEndAt = 0;
 
-// ---------- Images ----------
-const playerImg = new Image();
-playerImg.src = "https://thumbs.dreamstime.com/b/yellow-car-top-view-vector-illustration-sedan-284618518.jpg";
-const enemyImgs = [
-  "https://tse2.mm.bing.net/th/id/OIP.b016nfhhpWQiH8-_zxiq0gHaHa?pid=Api&P=0&h=220",
-  "https://tse2.mm.bing.net/th/id/OIP.tswnRHsV3-fUij9C6N1IaQHaHa?pid=Api&P=0&h=220"
-].map(s => { const im = new Image(); im.src = s; return im; });
-
-const player = { x: 0, y: CANVAS_H - CAR_H - 16, w: CAR_W, h: CAR_H, speed: 6 };
-player.x = ROAD_X + ROAD_W/2 - CAR_W/2;
-
-// ---------- Input ----------
-window.addEventListener('keydown', e => {
-  if (['ArrowLeft','a','A'].includes(e.key)) keys.left = true;
-  if (['ArrowRight','d','D'].includes(e.key)) keys.right = true;
-  if (['ArrowUp','w','W'].includes(e.key)) keys.up = true;
-  if (['ArrowDown','s','S'].includes(e.key)) keys.down = true;
-});
-window.addEventListener('keyup', e => {
-  if (['ArrowLeft','a','A'].includes(e.key)) keys.left = false;
-  if (['ArrowRight','d','D'].includes(e.key)) keys.right = false;
-  if (['ArrowUp','w','W'].includes(e.key)) keys.up = false;
-  if (['ArrowDown','s','S'].includes(e.key)) keys.down = false;
-});
-function bindButton(el, press, release) {
-  ['pointerdown','touchstart','mousedown'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); press(); }));
-  ['pointerup','touchend','mouseup','mouseleave','pointercancel'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); release(); }));
-}
-if (btnLeft && btnRight && btnUp && btnDown) {
-  bindButton(btnLeft, ()=>keys.left=true, ()=>keys.left=false);
-  bindButton(btnRight, ()=>keys.right=true, ()=>keys.right=false);
-  bindButton(btnUp, ()=>keys.up=true, ()=>keys.up=false);
-  bindButton(btnDown, ()=>keys.down=true, ()=>keys.down=false);
-}
-
-// ---------- Helpers ----------
-function laneCenter(i){ return ROAD_X + i*LANE_W + (LANE_W - CAR_W)/2; }
-function collides(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
-function rand(min,max){ return min + Math.random() * (max-min); }
-
-function spawnEnemy(){
-  const lane = Math.floor(Math.random() * LANE_COUNT);
-  const x = laneCenter(lane);
-  const y = -CAR_H - Math.random() * 120;
-  const img = enemyImgs[Math.floor(Math.random() * enemyImgs.length)];
-  enemies.push({ x, y, w: CAR_W, h: CAR_H, img, baseSpeed: baseSpeed + Math.random()*0.6 });
-}
-
-// ---------- Particles ----------
-function spawnSmoke(x,y,strength=1){
+// ---------- Smoke & Fire ----------
+function spawnSmoke(x, y, strength = 1, color = 'rgba(180,180,180,0.5)') {
   smokeParticles.push({
-    x: x + rand(-8,8),
-    y: y + rand(-6,6),
-    vx: rand(-0.2,0.2),
-    vy: rand(-0.4, -1.0) * strength,
-    size: rand(6,12) * strength,
-    alpha: rand(0.6,1)
+    x, y,
+    vx: rand(-0.3, 0.3),
+    vy: rand(-2.4, -0.8),
+    size: rand(6, 20) * strength,
+    life: rand(1600, 3000),
+    age: 0,
+    color
   });
 }
-function spawnFire(x,y){
-  for (let i=0;i<22;i++){
+
+function spawnFire(x, y) {
+  for (let i = 0; i < 45; i++) {
     fireParticles.push({
-      x: x + rand(-12, 12),
-      y: y + rand(-6, 6),
-      vx: rand(-0.8,0.8),
-      vy: rand(-1.0, -3.0),
-      size: rand(6,18),
-      life: rand(800,1600),
+      x, y,
+      vx: rand(-2, 2),
+      vy: rand(-2.4, -0.8),
+      size: rand(6, 20),
+      life: rand(1600, 3000),
       age: 0,
-      type: (Math.random() < 0.4 ? 'flame' : 'smoke')
+      type: (Math.random() < 0.5 ? 'flame' : 'smoke')
     });
   }
+  fireEndAt = performance.now() + 5000;
 }
-function updateParticles(dt){
-  for (let i = smokeParticles.length-1; i>=0; i--){
-    const p = smokeParticles[i];
-    p.x += p.vx * dt/16;
-    p.y += p.vy * dt/16;
-    p.alpha -= 0.004 * dt/16;
-    p.size += 0.02 * dt/16;
-    if (p.alpha <= 0) smokeParticles.splice(i,1);
-  }
-  for (let i = fireParticles.length-1; i>=0; i--){
-    const p = fireParticles[i];
-    p.x += p.vx * dt/16;
-    p.y += p.vy * dt/16;
-    p.age += dt;
-    if (p.type === 'flame') p.size *= 1 - 0.0006 * dt;
-    else p.size *= 1 + 0.0008 * dt;
-    p.alpha = Math.max(0, 1 - p.age / p.life);
-    if (p.age >= p.life) fireParticles.splice(i,1);
-  }
-}
+
+// ---------- Input ----------
+let keys = {};
+window.addEventListener('keydown', e => { keys[e.code] = true; });
+window.addEventListener('keyup', e => { keys[e.code] = false; });
 
 // ---------- Update ----------
-let lastSpawn = 0;
-function update(dt){
-  if (!running && !inFireMode) return;
-  if (inFireMode) {
-    updateParticles(dt);
-    if (performance.now() >= fireEndAt) {
-      inFireMode = false;
-      sound.stopEngine();
-      setTimeout(()=> {
-        startOverlay.style.display = 'flex';
-        hudLives.textContent = 'Lives: 3';
-        hudScore.textContent = 'Score: 0';
-        hudTimer.textContent = 'Time: ' + Math.ceil(totalTime);
-        score = 0; lives = 3; timeLeft = totalTime; baseSpeed = 2;
-        enemies.length = 0; smokeParticles.length = 0; fireParticles.length = 0;
-      }, 50);
-    }
-    return;
-  }
-
-  if (keys.up) baseSpeed = Math.min(baseSpeed + 0.004 * dt, 8);
-  if (keys.down) baseSpeed = Math.max(baseSpeed - 0.006 * dt, 1);
+function update(dt) {
+  if (!running) return;
 
   elapsed += dt;
-  speedMultiplier = 1 + Math.floor(elapsed / 8000) * 0.12;
-  bgOffset += 220 * (dt / 1000) * speedMultiplier;
-  if (bgOffset > 40) bgOffset -= 40;
+  timeLeft = Math.max(0, totalTime - elapsed / 1000);
+  if (timeLeft <= 0) return endGame(true);
 
-  const intensity = Math.min(1, (baseSpeed - 1) / 7);
-  sound.setEngineIntensity(intensity);
-
-  // Player smoke
-  if (Math.random() < 0.25 * (baseSpeed / 2)) {
-    spawnSmoke(player.x + player.w/2, player.y + player.h - 6, Math.min(1.8, baseSpeed/2));
-  }
+  const speed = baseSpeed + speedMultiplier;
+  sound.updateEngine(speed);
 
   // Player movement
-  if (keys.left) player.x -= player.speed * (1 + (baseSpeed - 2) / 4);
-  if (keys.right) player.x += player.speed * (1 + (baseSpeed - 2) / 4);
-  const leftBound = ROAD_X + 6, rightBound = ROAD_X + ROAD_W - player.w - 6;
-  if (player.x < leftBound) player.x = leftBound;
-  if (player.x > rightBound) player.x = rightBound;
+  if (keys['ArrowLeft']) player.x -= 0.24 * dt;
+  if (keys['ArrowRight']) player.x += 0.24 * dt;
+  if (keys['ArrowUp']) player.y -= 0.24 * dt;
+  if (keys['ArrowDown']) player.y += 0.24 * dt;
 
-  spawnTimer += dt;
-  const dynInt = Math.max(600, 1200 - elapsed * 0.05 - baseSpeed * 40);
-  if (spawnTimer >= dynInt) { spawnTimer = 0; spawnEnemy(); }
+  player.x = Math.max(0, Math.min(280 - player.w, player.x));
+  player.y = Math.max(0, Math.min(500 - player.h, player.y));
 
-  for (let i = enemies.length - 1; i >= 0; i--){
+  // Spawn player smoke
+  if (Math.random() < 0.25 * (baseSpeed / 2)) {
+    spawnSmoke(player.x + player.w / 2, player.y + player.h - 6, Math.min(1.8, baseSpeed / 2), player.color);
+  }
+
+  // Spawn enemies
+  spawnTimer -= dt;
+  if (spawnTimer <= 0) {
+    enemies.push({
+      x: rand(0, 280 - 40),
+      y: -70,
+      w: 40, h: 70,
+      color: `hsl(${rand(0, 360)},70%,60%)`
+    });
+    spawnTimer = 800;
+  }
+
+  // Move enemies + smoke
+  for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
     e.y += (1.8 + speedMultiplier + baseSpeed * 0.32) * (dt / 16);
 
-    // 🔥 NEW: emit smoke for enemy cars
+    // color-matched smoke
     if (Math.random() < 0.15) {
-      spawnSmoke(e.x + e.w / 2, e.y + e.h - 4, 0.8);
+      spawnSmoke(e.x + e.w / 2, e.y + e.h - 4, 0.8, e.color);
     }
 
-    if (collides(player, e)){
-      spawnFire(player.x + player.w/2, player.y + player.h/2);
+    if (e.y > 520) {
       enemies.splice(i, 1);
-      lives--; hudLives.textContent = 'Lives: ' + lives;
-      sound.crash();
-      if (lives <= 0){
-        triggerFireMode(e);
-        return;
-      }
-    } else if (e.y > CANVAS_H + 60) {
-      enemies.splice(i,1);
-      score++; hudScore.textContent = 'Score: ' + score;
+      score++;
     }
   }
 
-  updateParticles(dt);
-  timeLeft -= dt/1000;
-  if (timeLeft < 0) timeLeft = 0;
-  hudTimer.textContent = 'Time: ' + Math.ceil(timeLeft);
-  if (timeLeft <= 0){
-    running = false;
-    sound.stopEngine();
-    sound.victory();
-    endGame(true);
-    return;
+  // Collisions
+  for (const e of enemies) {
+    if (
+      player.x < e.x + e.w &&
+      player.x + player.w > e.x &&
+      player.y < e.y + e.h &&
+      player.y + player.h > e.y
+    ) {
+      lives--;
+      sound.beep(180, 0.4);
+      spawnFire(player.x + player.w / 2, player.y + player.h / 2);
+      e.y = 600;
+      if (lives <= 0) endGame(false);
+    }
+  }
+
+  // Smoke updates
+  for (let i = smokeParticles.length - 1; i >= 0; i--) {
+    const s = smokeParticles[i];
+    s.age += dt;
+    s.x += s.vx;
+    s.y += s.vy;
+    if (s.age > s.life) smokeParticles.splice(i, 1);
+  }
+
+  // Fire updates
+  for (let i = fireParticles.length - 1; i >= 0; i--) {
+    const f = fireParticles[i];
+    f.age += dt;
+    f.x += f.vx;
+    f.y += f.vy;
+    if (f.age > f.life) fireParticles.splice(i, 1);
   }
 }
 
 // ---------- Draw ----------
-function draw(){
-  ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
-  ctx.fillStyle = '#0d0d0d'; ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
-  ctx.fillStyle = '#2f2f2f'; ctx.fillRect(ROAD_X,0,ROAD_W,CANVAS_H);
-  ctx.fillStyle = '#dedede';
-  const stripeW = 8;
-  for (let i=0;i<LANE_COUNT;i++){
-    const sx = ROAD_X + i*LANE_W + LANE_W/2 - stripeW/2;
-    for (let y = -40 + (bgOffset % 40); y < CANVAS_H + 40; y += 80) {
-      ctx.fillRect(sx, y, stripeW, 40);
-    }
+function draw() {
+  ctx.fillStyle = '#0b0b0b';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // road
+  ctx.fillStyle = '#2f2f2f';
+  ctx.fillRect(60, 0, 160, canvas.height);
+
+  // player
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  // enemies
+  for (const e of enemies) {
+    ctx.fillStyle = e.color;
+    ctx.fillRect(e.x, e.y, e.w, e.h);
   }
 
-  for (const p of smokeParticles) {
+  // smoke
+  for (const s of smokeParticles) {
+    const alpha = 1 - s.age / s.life;
+    ctx.fillStyle = s.color.replace('0.5', alpha.toFixed(2));
     ctx.beginPath();
-    ctx.fillStyle = `rgba(120,120,120,${Math.max(0, p.alpha)})`;
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.arc(s.x, s.y, s.size * (1 - s.age / s.life), 0, Math.PI * 2);
     ctx.fill();
   }
 
-  for (const e of enemies) {
-    try { ctx.drawImage(e.img, e.x, e.y, e.w, e.h); }
-    catch (err) { ctx.fillStyle = '#c33'; ctx.fillRect(e.x, e.y, e.w, e.h); }
+  // fire
+  for (const f of fireParticles) {
+    const alpha = 1 - f.age / f.life;
+    ctx.fillStyle = f.type === 'flame'
+      ? `rgba(255,${Math.floor(100 + 150 * alpha)},0,${alpha})`
+      : `rgba(200,200,200,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, f.size * (1 - f.age / f.life), 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  try { ctx.drawImage(playerImg, player.x, player.y, player.w, player.h); }
-  catch (err) { ctx.fillStyle = '#ff0'; ctx.fillRect(player.x, player.y, player.w, player.h); }
-
-  for (const p of fireParticles) {
-    if (p.type === 'flame') {
-      const a = Math.max(0, 0.9 - p.age / p.life);
-      ctx.fillStyle = `rgba(255,${Math.floor(120 + 100*Math.random())},0,${a})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, p.size*0.6), 0, Math.PI*2); ctx.fill();
-    } else {
-      const a = Math.max(0, 0.8 - p.age / p.life);
-      ctx.fillStyle = `rgba(80,80,80,${a})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, p.size*0.9), 0, Math.PI*2); ctx.fill();
-    }
-  }
-}
-
-// ---------- Fire Mode ----------
-function triggerFireMode(lastEnemy){
-  inFireMode = true;
-  fireParticles.length = 0;
-  const px = player.x + player.w/2;
-  const py = player.y + player.h/2;
-  const ex = (lastEnemy && lastEnemy.x) ? lastEnemy.x + lastEnemy.w/2 : player.x + 30;
-  const ey = (lastEnemy && lastEnemy.y) ? lastEnemy.y + lastEnemy.h/2 : player.y;
-  sound.stopEngine();
-  sound.crash();
-
-  for (let i=0;i<60;i++){
-    fireParticles.push({
-      x: px + rand(-20,20), y: py + rand(-10,10),
-      vx: rand(-1.2,1.2), vy: rand(-2.4,-0.8),
-      size: rand(6,20), life: rand(1600,3000), age: 0, type: (Math.random() < 0.5 ? 'flame' : 'smoke')
-    });
-    fireParticles.push({
-      x: ex + rand(-20,20), y: ey + rand(-10,10),
-      vx: rand(-1.2,1.2), vy: rand(-2.4,-0.8),
-      size: rand(6,20), life: rand(1600,3000), age: 0, type: (Math.random() < 0.5 ? 'flame' : 'smoke')
-    });
-  }
-
-  fireEndAt = performance.now() + 5000;
+  // HUD
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px monospace';
+  ctx.fillText('Score: ' + score, 10, 20);
+  ctx.fillText('Lives: ' + lives, 10, 40);
+  ctx.fillText('Time: ' + Math.ceil(timeLeft), 10, 60);
 }
 
 // ---------- Game Flow ----------
-function endGame(won){
+function endGame(won) {
   running = false;
   setTimeout(() => {
     startOverlay.style.display = 'flex';
@@ -353,12 +251,16 @@ function endGame(won){
     startOverlay.querySelector('p').textContent = 'Score: ' + score;
   }, 1200);
 }
-function startCountdown(){
+
+function startCountdown() {
   startOverlay.style.display = 'none';
   countOverlay.style.display = 'flex';
-  let n = 3; countText.textContent = n;
+  let n = 3;
+  countText.textContent = n;
   const interval = setInterval(() => {
-    n--; if (n>0) countText.textContent = n; else if (n===0) countText.textContent = 'GO!';
+    n--;
+    if (n > 0) countText.textContent = n;
+    else if (n === 0) countText.textContent = 'GO!';
     if (n < 0) {
       clearInterval(interval);
       countOverlay.style.display = 'none';
@@ -366,16 +268,25 @@ function startCountdown(){
     }
   }, 800);
 }
-function startGame(){
-  running = true; paused = false; elapsed = 0; spawnTimer = 0;
-  score = 0; lives = 3; timeLeft = totalTime; baseSpeed = 2;
-  enemies.length = 0; smokeParticles.length = 0; fireParticles.length = 0;
+
+function startGame() {
+  running = true;
+  paused = false;
+  elapsed = 0;
+  spawnTimer = 0;
+  score = 0;
+  lives = 3;
+  timeLeft = totalTime;
+  baseSpeed = 2;
+  enemies.length = 0;
+  smokeParticles.length = 0;
+  fireParticles.length = 0;
   sound.startEngine();
 }
 
 // ---------- Main Loop ----------
 let lastT = 0;
-function loop(t){
+function loop(t) {
   const dt = Math.min(40, t - lastT);
   lastT = t;
   update(dt);
