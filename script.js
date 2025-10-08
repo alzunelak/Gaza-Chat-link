@@ -1,14 +1,13 @@
 // ===== Racing Game Script.js =====
 
+// Get elements
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// HUD elements
 const hudScore = document.getElementById("hudScore");
 const hudLives = document.getElementById("hudLives");
 const hudTimer = document.getElementById("hudTimer");
 
-// Overlays
 const startOverlay = document.getElementById("startOverlay");
 const countOverlay = document.getElementById("countOverlay");
 const countText = document.getElementById("countText");
@@ -17,8 +16,6 @@ const overlayStart = document.getElementById("overlayStart");
 // Sounds
 const driveSound = new Audio("https://cdn.pixabay.com/download/audio/2021/09/13/audio_d7e3c4f2a9.mp3?filename=car-engine-loop-6196.mp3");
 driveSound.loop = true;
-driveSound.volume = 0;
-
 const crashSound = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_1ee26b4d8b.mp3?filename=crash-wood-and-glass-11159.mp3");
 
 // Images
@@ -38,10 +35,10 @@ let score = 0;
 let lives = 3;
 let timer = 45;
 let gameActive = false;
-let countdownActive = false;
 let keys = {};
+let crashEffect = false;
 let smokeParticles = [];
-let enginePlaying = false;
+let countdownActive = false;
 
 // Spawn enemies
 function spawnEnemy() {
@@ -79,89 +76,44 @@ function startCountdown() {
       countOverlay.style.display = "none";
       countdownActive = false;
       gameActive = true;
+      driveSound.play();
       gameLoop();
     }
   }, 1000);
 }
 
 // Controls
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
+document.addEventListener("keydown", e => {
+  keys[e.key] = true;
+});
+document.addEventListener("keyup", e => {
+  keys[e.key] = false;
+});
 
-document.getElementById("btnUp").onmousedown = () => keys["ArrowUp"] = true;
-document.getElementById("btnDown").onmousedown = () => keys["ArrowDown"] = true;
-document.getElementById("btnLeft").onmousedown = () => keys["ArrowLeft"] = true;
-document.getElementById("btnRight").onmousedown = () => keys["ArrowRight"] = true;
+document.getElementById("btnUp").onclick = () => keys["ArrowUp"] = true;
+document.getElementById("btnDown").onclick = () => keys["ArrowDown"] = true;
+document.getElementById("btnLeft").onclick = () => keys["ArrowLeft"] = true;
+document.getElementById("btnRight").onclick = () => keys["ArrowRight"] = true;
 
-document.getElementById("btnUp").onmouseup = () => keys["ArrowUp"] = false;
-document.getElementById("btnDown").onmouseup = () => keys["ArrowDown"] = false;
-document.getElementById("btnLeft").onmouseup = () => keys["ArrowLeft"] = false;
-document.getElementById("btnRight").onmouseup = () => keys["ArrowRight"] = false;
-
-// Start button
+// Start game
 overlayStart.onclick = () => {
   startOverlay.style.display = "none";
   resetGame();
   startCountdown();
 };
 
-// Smooth fade sound
-function setEngineSound(active) {
-  if (active && !enginePlaying) {
-    enginePlaying = true;
-    driveSound.play();
-    const fadeIn = setInterval(() => {
-      if (driveSound.volume < 0.5) driveSound.volume += 0.05;
-      else clearInterval(fadeIn);
-    }, 200);
-  } else if (!active && enginePlaying) {
-    const fadeOut = setInterval(() => {
-      if (driveSound.volume > 0.05) driveSound.volume -= 0.05;
-      else {
-        clearInterval(fadeOut);
-        driveSound.pause();
-        driveSound.currentTime = 0;
-        enginePlaying = false;
-      }
-    }, 200);
-  }
-}
-
 // Move player
 function movePlayer() {
-  let moved = false;
-  if (keys["ArrowLeft"] && player.x > 60) {
-    player.x -= player.speed;
-    moved = true;
-  }
-  if (keys["ArrowRight"] && player.x < canvas.width - player.width - 60) {
-    player.x += player.speed;
-    moved = true;
-  }
-  if (keys["ArrowUp"] && player.y > 0) {
-    player.y -= player.speed;
-    moved = true;
-  }
-  if (keys["ArrowDown"] && player.y < canvas.height - player.height) {
-    player.y += player.speed;
-    moved = true;
-  }
-
-  if (moved) {
-    smokeParticles.push({
-      x: player.x + player.width / 2,
-      y: player.y + player.height - 10,
-      size: Math.random() * 6 + 4,
-      alpha: 0.6
-    });
-  }
-  setEngineSound(moved);
+  if (keys["ArrowLeft"] && player.x > 60) player.x -= player.speed;
+  if (keys["ArrowRight"] && player.x < canvas.width - player.width - 60) player.x += player.speed;
+  if (keys["ArrowUp"] && player.y > 0) player.y -= player.speed;
+  if (keys["ArrowDown"] && player.y < canvas.height - player.height) player.y += player.speed;
 }
 
-// Smoke
+// Smoke effect
 function drawSmoke() {
   for (let s of smokeParticles) {
-    ctx.fillStyle = `rgba(160,160,160,${s.alpha})`;
+    ctx.fillStyle = `rgba(120,120,120,${s.alpha})`;
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
     ctx.fill();
@@ -173,13 +125,15 @@ function drawSmoke() {
 
 // Collision detection
 function checkCollision(a, b) {
-  return a.x < b.x + b.width &&
-         a.x + a.width > b.x &&
-         a.y < b.y + b.height &&
-         a.y + a.height > b.y;
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
 }
 
-// Fire effect
+// Fire explosion effect
 function drawExplosion(x, y) {
   ctx.fillStyle = "orange";
   ctx.beginPath();
@@ -191,7 +145,7 @@ function drawExplosion(x, y) {
   ctx.fill();
 }
 
-// Game loop
+// Main loop
 function gameLoop() {
   if (!gameActive) return;
 
@@ -200,28 +154,36 @@ function gameLoop() {
 
   movePlayer();
 
+  // Update enemies
   for (let e of enemies) {
     e.y += e.speed;
     ctx.drawImage(e.img, e.x, e.y, e.width, e.height);
   }
 
+  // Spawn enemies
   if (Math.random() < 0.02) spawnEnemy();
+
+  // Remove off-screen enemies
   enemies = enemies.filter(e => e.y < canvas.height);
 
+  // Draw player
   ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
 
+  // Check collisions
   enemies.forEach((e, i) => {
     if (checkCollision(player, e)) {
       crashSound.play();
-      lives--;
-      hudLives.textContent = "Lives: " + lives;
       smokeParticles.push({ x: player.x + 30, y: player.y, size: 20, alpha: 1 });
       enemies.splice(i, 1);
-
+      lives--;
+      hudLives.textContent = "Lives: " + lives;
       if (lives <= 0) {
         driveSound.pause();
+        driveSound.currentTime = 0;
+        crashEffect = true;
         drawExplosion(player.x + 30, player.y + 30);
         setTimeout(() => {
+          crashEffect = false;
           startOverlay.style.display = "flex";
         }, 5000);
         gameActive = false;
@@ -231,5 +193,7 @@ function gameLoop() {
 
   drawSmoke();
 
-  if (gameActive) requestAnimationFrame(gameLoop);
+  if (gameActive) {
+    requestAnimationFrame(gameLoop);
+  }
 }
