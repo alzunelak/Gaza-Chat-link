@@ -200,20 +200,24 @@ function update(dt){
       lives--;
       hudLives.textContent = 'Lives: ' + lives;
 
-      if(lives <= 0){
-        // final crash -> game over
-        running = false;
-        sound.stopEngine();
-        endGame(false);
-        return;
-      } else {
-        // respawn player in middle lane and brief pause
-        paused = true;
-        // reposition player to middle lane and slightly back
-        player.x = laneCenter(Math.floor(LANE_COUNT/2));
-        player.y = CANVAS_H - CAR_H - 16;
-        setTimeout(()=> { paused = false; }, 800);
-      }
+     if (lives <= 0) {
+  running = false;
+  sound.stopEngine();
+  endGame(false);
+  return;
+} else {
+  // brief pause and respawn player
+  paused = true;
+  player.x = laneCenter(Math.floor(LANE_COUNT / 2));
+  player.y = CANVAS_H - CAR_H - 16;
+
+  setTimeout(() => {
+    paused = false;
+    sound.startEngine(); // restart car engine sound
+    if (running) requestAnimationFrame(loop); // resume game loop
+  }, 800);
+}
+
     } else if(e.y > CANVAS_H + 50){
       enemies.splice(i,1);
       score++;
