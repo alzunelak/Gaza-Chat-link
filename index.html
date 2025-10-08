@@ -1,37 +1,85 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Road Dodge — Finish Line Race</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Road Dodge — Race Start with Sounds</title>
+<style>
+:root{
+  --bg:#0b0b0b; --road:#2f2f2f; --panel:rgba(0,0,0,0.45);
+  --accent:#ffcc00; --ui:#e6e6e6;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:linear-gradient(#141414,#070707);font-family:system-ui,Arial;color:var(--ui)}
+.wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+h1{margin:0;color:var(--accent)}
+.game-area{position:relative;display:block}
+canvas{display:block;border-radius:10px;box-shadow:0 14px 36px rgba(0,0,0,.6);background:#111}
+.hud-top{position:absolute;left:50%;transform:translateX(-50%);top:10px;z-index:50;width:88%;display:flex;justify-content:center}
+.hud-panel{background:var(--panel);color:var(--ui);padding:8px 14px;border-radius:10px;display:flex;gap:18px;align-items:center;justify-content:center;font-weight:700}
+.hud-panel div{min-width:84px;text-align:center;font-size:14px}
+.road-controls{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;z-index:55;display:flex;align-items:center;justify-content:center;gap:10px;pointer-events:none}
+.controls-grid{width:320px;height:90px;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;pointer-events:auto}
+.ctrl-btn{background:rgba(255,255,255,0.06);border-radius:10px;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;font-size:20px;color:var(--ui);font-weight:800;cursor:pointer}
+.ctrl-empty{background:transparent}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:80}
+.panel{background:linear-gradient(#111,#0b0b0b);padding:18px;border-radius:12px;text-align:center;color:var(--ui);width:320px}
+.count{font-size:72px;font-weight:900;color:var(--accent);margin:6px 0}
+.footer-note{font-size:12px;opacity:.8;margin-top:8px}
+@media(max-width:760px){ .wrap{padding:8px} canvas{width:92vw;height:calc(92vw*1.52)} .hud-panel{font-size:13px} }
+</style>
 </head>
 <body>
-  <div id="gameContainer">
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <div class="wrap">
+    <h1>Road Dodge — Race Start</h1>
 
-    <div id="hud">
-      <span id="score">Score: 0</span>
-      <span id="timer">Time: 60</span>
-      <span id="lives">Lives: 3</span>
+    <div class="game-area" id="gameArea">
+      <canvas id="game" width="420" height="640" tabindex="0" aria-label="Road Dodge canvas"></canvas>
+
+      <!-- HUD on road -->
+      <div class="hud-top">
+        <div class="hud-panel" id="hudPanel">
+          <div id="hudScore">Score: 0</div>
+          <div id="hudLives">Lives: 3</div>
+          <div id="hudTimer">Time: 45</div>
+        </div>
+      </div>
+
+      <!-- on-road arrows (bottom inside road) -->
+      <div class="road-controls" id="roadControls">
+        <div class="controls-grid" id="controlsGrid" aria-hidden="false">
+          <div class="ctrl-btn ctrl-empty" style="visibility:hidden"></div>
+          <div class="ctrl-btn" id="btnUp">▲</div>
+          <div class="ctrl-btn ctrl-empty" style="visibility:hidden"></div>
+          <div class="ctrl-btn" id="btnLeft">◀</div>
+          <div class="ctrl-btn" id="btnDown">▼</div>
+          <div class="ctrl-btn" id="btnRight">▶</div>
+        </div>
+      </div>
     </div>
 
-    <div id="startOverlay">
-      <button id="startBtn">START</button>
-    </div>
+    <div class="footer-note">Tip: replace fallback SVGs by placing Images/player.png and Images/enemy1.png / enemy2.png</div>
+  </div>
 
-    <div id="countOverlay">
-      <h1 id="countText">3</h1>
+  <!-- overlays -->
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <h2>Road Dodge — Race Start</h2>
+      <p class="small">Tap Start to allow audio, cars will line up, then countdown</p>
+      <div style="margin-top:12px">
+        <button id="overlayStart" style="padding:10px 18px;font-size:18px">Start Race</button>
+      </div>
     </div>
+  </div>
 
-    <div id="controls">
-      <button id="btnLeft">←</button>
-      <button id="btnUp">↑</button>
-      <button id="btnDown">↓</button>
-      <button id="btnRight">→</button>
+  <div class="overlay" id="countOverlay" style="display:none">
+    <div class="panel">
+      <div class="count" id="countText">3</div>
+      <div class="small">Get ready</div>
     </div>
   </div>
 
   <script src="script.js"></script>
 </body>
 </html>
+
