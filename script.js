@@ -1,19 +1,63 @@
-/* Full updated game:
+/* Full updated game JS only:
    - Lives decrement on crash; automatic respawn until lives run out.
    - Engine sound loops after GO and varies with speed.
-   - All other mechanics preserved: countdown, HUD, on-screen arrows, spawns, SVG fallbacks.
+   - All other mechanics preserved: countdown, HUD, on-screen arrows, spawns.
 */
 
 // ---------- Sound Engine ----------
 class SoundEngine {
   constructor(){ this.ctx=null; this.engineGain=null; this.engineOsc=null; }
   ensure(){ if(!this.ctx){ this.ctx=new (window.AudioContext||window.webkitAudioContext)(); } }
-  beep(freq=880,time=0.12,when=0){ this.ensure(); const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='sine'; o.frequency.value=freq; g.gain.value=0.001; o.connect(g); g.connect(this.ctx.destination); const t=this.ctx.currentTime+when; g.gain.linearRampToValueAtTime(0.18,t+0.01); g.gain.exponentialRampToValueAtTime(0.001,t+time); o.start(t); o.stop(t+time+0.02); }
-  startEngine(){ this.ensure(); if(this.engineOsc)return; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='sawtooth'; o.frequency.value=80; g.gain.value=0.0008; o.connect(g); g.connect(this.ctx.destination); o.start(); this.engineOsc=o; this.engineGain=g; }
-  setEngineIntensity(i){ if(!this.engineGain)return; this.engineGain.gain.linearRampToValueAtTime(0.0004+0.0016*i,this.ctx.currentTime+0.05); if(this.engineOsc)this.engineOsc.frequency.linearRampToValueAtTime(70+i*120,this.ctx.currentTime+0.05); }
-  stopEngine(){ if(!this.engineOsc)return; try{ this.engineOsc.stop(); }catch(e){} this.engineOsc.disconnect(); this.engineOsc=null; this.engineGain=null; }
-  crash(){ this.ensure(); const bufferSize=this.ctx.sampleRate*0.25; const buffer=this.ctx.createBuffer(1,bufferSize,this.ctx.sampleRate); const data=buffer.getChannelData(0); for(let i=0;i<bufferSize;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/(bufferSize*0.02)); const src=this.ctx.createBufferSource(); src.buffer=buffer; const g=this.ctx.createGain(); g.gain.value=0.8; src.connect(g); g.connect(this.ctx.destination); src.start(); }
-  victory(){ this.ensure(); const times=[0,0.15,0.33,0.65]; const freqs=[880,1046.5,1318.5,1760]; times.forEach((t,i)=>this.beep(freqs[i],0.14,t)); }
+  beep(freq=880,time=0.12,when=0){
+    this.ensure();
+    const o=this.ctx.createOscillator();
+    const g=this.ctx.createGain();
+    o.type='sine'; o.frequency.value=freq; g.gain.value=0.001;
+    o.connect(g); g.connect(this.ctx.destination);
+    const t=this.ctx.currentTime+when;
+    g.gain.linearRampToValueAtTime(0.18,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.001,t+time);
+    o.start(t); o.stop(t+time+0.02);
+  }
+  startEngine(){
+    this.ensure();
+    if(this.engineOsc) return;
+    const o=this.ctx.createOscillator();
+    const g=this.ctx.createGain();
+    o.type='sawtooth'; o.frequency.value=80; g.gain.value=0.0008;
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start();
+    this.engineOsc=o; this.engineGain=g;
+  }
+  setEngineIntensity(i){
+    if(!this.engineGain) return;
+    this.engineGain.gain.linearRampToValueAtTime(0.0004+0.0016*i,this.ctx.currentTime+0.05);
+    if(this.engineOsc) this.engineOsc.frequency.linearRampToValueAtTime(70+i*120,this.ctx.currentTime+0.05);
+  }
+  stopEngine(){
+    if(!this.engineOsc) return;
+    try{ this.engineOsc.stop(); }catch(e){}
+    this.engineOsc.disconnect(); this.engineOsc=null; this.engineGain=null;
+  }
+  crash(){
+    this.ensure();
+    const bufferSize=this.ctx.sampleRate*0.25;
+    const buffer=this.ctx.createBuffer(1,bufferSize,this.ctx.sampleRate);
+    const data=buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++) data[i]=(Math.random()*2-1)*Math.exp(-i/(bufferSize*0.02));
+    const src=this.ctx.createBufferSource();
+    src.buffer=buffer;
+    const g=this.ctx.createGain();
+    g.gain.value=0.8;
+    src.connect(g); g.connect(this.ctx.destination);
+    src.start();
+  }
+  victory(){
+    this.ensure();
+    const times=[0,0.15,0.33,0.65];
+    const freqs=[880,1046.5,1318.5,1760];
+    times.forEach((t,i)=>this.beep(freqs[i],0.14,t));
+  }
 }
 const sound = new SoundEngine();
 
@@ -27,7 +71,6 @@ const startOverlay = document.getElementById('startOverlay');
 const startBtn = document.getElementById('startBtn');
 const countOverlay = document.getElementById('countOverlay');
 const countText = document.getElementById('countText');
-
 const btnUp = document.getElementById('btnUp');
 const btnDown = document.getElementById('btnDown');
 const btnLeft = document.getElementById('btnLeft');
@@ -118,6 +161,12 @@ function update(dt){
       lives--; hudLives.textContent='Lives: '+lives;
       sound.crash();
       if(lives<=0){ running=false; endGame(false); return; }
+      else {
+        // Respawn player after crash
+        paused=true;
+        player.x=laneCenter(Math.floor(LANE_COUNT/2));
+        setTimeout(()=>{ paused=false; sound.startEngine(); if(running) requestAnimationFrame(loop); }, 800);
+      }
     } else if(e.y>CANVAS_H+50){
       enemies.splice(i,1);
       score++; hudScore.textContent='Score: '+score;
