@@ -1,14 +1,98 @@
+/* Full updated game:
+   - Lives decrement on crash; automatic respawn until lives run out.
+   - Engine sound loops after GO and varies with speed.
+   - All other mechanics preserved: countdown, HUD, on-screen arrows, spawns, SVG fallbacks.
+*/
 
-// ---------------- Sound Engine (same as before) ----------------
+// ---------------- Sound Engine (updated, louder & responsive) ----------------
 class SoundEngine {
-  constructor(){ this.ctx=null; this.engineGain=null; this.engineOsc=null; }
+  constructor(){ this.ctx=null; this.engineGain=null; this.engineOsc=null; this.engineFilter=null; }
   ensure(){ if(!this.ctx){ this.ctx=new (window.AudioContext||window.webkitAudioContext)(); } }
-  beep(freq=880,time=0.12,when=0){ this.ensure(); const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='sine'; o.frequency.value=freq; g.gain.value=0.001; o.connect(g); g.connect(this.ctx.destination); const t=this.ctx.currentTime+when; g.gain.linearRampToValueAtTime(0.18,t+0.01); g.gain.exponentialRampToValueAtTime(0.001,t+time); o.start(t); o.stop(t+time+0.02);}
-  startEngine(){ this.ensure(); if(this.engineOsc)return; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='sawtooth'; o.frequency.value=80; g.gain.value=0.0008; o.connect(g); g.connect(this.ctx.destination); o.start(); this.engineOsc=o; this.engineGain=g;}
-  setEngineIntensity(intensity){ if(!this.engineGain)return; this.engineGain.gain.linearRampToValueAtTime(0.0004+0.0016*intensity,this.ctx.currentTime+0.05); if(this.engineOsc)this.engineOsc.frequency.linearRampToValueAtTime(70+intensity*120,this.ctx.currentTime+0.05);}
-  stopEngine(){ if(!this.engineOsc)return; try{ this.engineOsc.stop();}catch(e){} this.engineOsc.disconnect(); this.engineOsc=null; this.engineGain=null;}
-  crash(){ this.ensure(); const bufferSize=this.ctx.sampleRate*0.25; const buffer=this.ctx.createBuffer(1,bufferSize,this.ctx.sampleRate); const data=buffer.getChannelData(0); for(let i=0;i<bufferSize;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/(bufferSize*0.02)); const src=this.ctx.createBufferSource(); src.buffer=buffer; const g=this.ctx.createGain(); g.gain.value=0.8; src.connect(g); g.connect(this.ctx.destination); src.start();}
-  victory(){ this.ensure(); const times=[0,0.15,0.33,0.65]; const freqs=[880,1046.5,1318.5,1760]; times.forEach((t,i)=>this.beep(freqs[i],0.14,t));}
+  beep(freq=880,time=0.12,when=0){
+    this.ensure();
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.value = 0.001;
+    o.connect(g); g.connect(this.ctx.destination);
+    const t = this.ctx.currentTime + when;
+    g.gain.linearRampToValueAtTime(0.18, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + time);
+    o.start(t); o.stop(t + time + 0.02);
+  }
+
+  startEngine(){
+    this.ensure();
+    if (this.engineOsc) return;
+    // create oscillator + gain + lowpass for a car hum
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 1200; lp.Q.value = 0.6;
+
+    o.type = 'sawtooth';
+    o.frequency.value = 70; // base pitch
+    g.gain.value = 0.02; // audible but not too loud
+
+    o.connect(g);
+    g.connect(lp);
+    lp.connect(this.ctx.destination);
+
+    o.start();
+    this.engineOsc = o;
+    this.engineGain = g;
+    this.engineFilter = lp;
+  }
+
+  setEngineIntensity(intensity){
+    // intensity 0..1 controls pitch & loudness
+    if (!this.engineGain) return;
+    const i = Math.max(0, Math.min(1, intensity));
+    const targetGain = 0.008 + 0.04 * i; // adjust if too loud
+    this.engineGain.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + 0.05);
+
+    if (this.engineOsc) {
+      const targetFreq = 60 + i * 160; // 60..220 Hz
+      this.engineOsc.frequency.linearRampToValueAtTime(targetFreq, this.ctx.currentTime + 0.05);
+    }
+
+    if (this.engineFilter) {
+      const targetFc = 800 + i * 1200; // opens filter more with speed
+      this.engineFilter.frequency.linearRampToValueAtTime(targetFc, this.ctx.currentTime + 0.05);
+    }
+  }
+
+  stopEngine(){
+    if (!this.engineOsc) return;
+    try { this.engineOsc.stop(); } catch (e) {}
+    try { this.engineOsc.disconnect(); } catch(e){}
+    try { this.engineGain.disconnect(); } catch(e){}
+    try { this.engineFilter.disconnect(); } catch(e){}
+    this.engineOsc = null;
+    this.engineGain = null;
+    this.engineFilter = null;
+  }
+
+  crash(){
+    this.ensure();
+    const bufferSize = this.ctx.sampleRate * 0.25;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.02));
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    const g = this.ctx.createGain(); g.gain.value = 0.6;
+    src.connect(g); g.connect(this.ctx.destination);
+    src.start();
+  }
+
+  victory(){
+    this.ensure();
+    const times = [0, 0.15, 0.33, 0.65];
+    const freqs = [880, 1046.5, 1318.5, 1760];
+    times.forEach((t,i)=> this.beep(freqs[i], 0.14, t));
+  }
 }
 const sound = new SoundEngine();
 
@@ -81,34 +165,66 @@ function spawnEnemy(){
 // update
 function update(dt){
   if(!running||paused)return;
+
+  // up/down adjust base speed
   if(keys.up) baseSpeed=Math.min(baseSpeed+0.004*dt,7);
   if(keys.down) baseSpeed=Math.max(baseSpeed-0.006*dt,0.8);
+
   elapsed+=dt; speedMultiplier=1+Math.floor(elapsed/8000)*0.12;
   bgOffset+=220*(dt/1000)*speedMultiplier; if(bgOffset>40) bgOffset-=40;
+
+  // engine intensity updates (audible)
   sound.setEngineIntensity(Math.min(1,(baseSpeed-1)/6));
+
+  // player lateral movement
   if(keys.left) player.x-=player.speed*(1+(baseSpeed-2)/4);
   if(keys.right) player.x+=player.speed*(1+(baseSpeed-2)/4);
   const leftBound = ROAD_X+6, rightBound=ROAD_X+ROAD_W-player.w-6;
-  if(player.x<leftBound)player.x=leftBound;
-  if(player.x>rightBound)player.x=rightBound;
+  if(player.x<leftBound) player.x=leftBound;
+  if(player.x>rightBound) player.x=rightBound;
 
   // spawn enemies
   spawnTimer+=dt;
   const dynInt=Math.max(600,spawnInterval-elapsed*0.05-baseSpeed*40);
   if(spawnTimer>=dynInt){ spawnTimer=0; spawnEnemy(); }
 
-  // move enemies
+  // move enemies and check collisions; now decrement lives, respawn until lives=0
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];
     e.y+=(e.baseSpeed+1*speedMultiplier+baseSpeed*0.3)*(dt/16);
+
     if(collides(player,e)){
-      running=false; sound.crash(); endGame(false); return;
-    }else if(e.y>CANVAS_H+50){ enemies.splice(i,1); score++; hudScore.textContent='Score: '+score;}
+      // crash handling: reduce life, remove enemy
+      sound.crash();
+      enemies.splice(i,1);
+      lives--;
+      hudLives.textContent = 'Lives: ' + lives;
+
+      if(lives <= 0){
+        // final crash -> game over
+        running = false;
+        sound.stopEngine();
+        endGame(false);
+        return;
+      } else {
+        // respawn player in middle lane and brief pause
+        paused = true;
+        // reposition player to middle lane and slightly back
+        player.x = laneCenter(Math.floor(LANE_COUNT/2));
+        player.y = CANVAS_H - CAR_H - 16;
+        setTimeout(()=> { paused = false; }, 800);
+      }
+    } else if(e.y > CANVAS_H + 50){
+      enemies.splice(i,1);
+      score++;
+      hudScore.textContent = 'Score: ' + score;
+    }
   }
 
-  timeLeft-=dt/1000; if(timeLeft<0) timeLeft=0; hudTimer.textContent='Time: '+Math.ceil(timeLeft);
-  if(player.y<=40){ running=false; sound.victory(); endGame(true); return;}
-  if(timeLeft<=0 && lives>0){ running=false; sound.victory(); endGame(true); return;}
+  // timer and win
+  timeLeft -= dt/1000; if(timeLeft < 0) timeLeft = 0; hudTimer.textContent = 'Time: ' + Math.ceil(timeLeft);
+  if(player.y <= 40){ running = false; sound.victory(); endGame(true); return; }
+  if(timeLeft <= 0 && lives > 0){ running = false; sound.victory(); endGame(true); return; }
 }
 
 // draw
@@ -118,38 +234,89 @@ function draw(){
   ctx.fillStyle='#2f2f2f'; roundRect(ctx,ROAD_X,0,ROAD_W,CANVAS_H,12,true,false);
   ctx.fillStyle='#1f1f1f'; ctx.fillRect(ROAD_X-6,0,6,CANVAS_H); ctx.fillRect(ROAD_X+ROAD_W,0,6,CANVAS_H);
   ctx.fillStyle='#dedede'; const stripeW=8;
-  for(let i=0;i<LANE_COUNT;i++){ const sx=ROAD_X+i*LANE_W+LANE_W/2-stripeW/2; for(let y=-40+(bgOffset%40);y<CANVAS_H+40;y+=80) ctx.fillRect(sx,y,stripeW,40);}
+  for(let i=0;i<LANE_COUNT;i++){ const sx=ROAD_X+i*LANE_W+LANE_W/2-stripeW/2; for(let y=-40+(bgOffset%40);y<CANVAS_H+40;y+=80) ctx.fillRect(sx,y,stripeW,40); }
   ctx.fillStyle='#fff'; ctx.fillRect(ROAD_X+6,36,ROAD_W-12,6);
 
-  for(const e of enemies){ const img=(e.img&&e.img.complete)?e.img:((Math.floor(e.x)%2===0)?fbE1:fbE2); ctx.drawImage(img,e.x,e.y,e.w,e.h);}
+  for(const e of enemies){ const img=(e.img&&e.img.complete)?e.img:((Math.floor(e.x)%2===0)?fbE1:fbE2); ctx.drawImage(img,e.x,e.y,e.w,e.h); }
   if(player.useImage&&player.img&&player.img.complete) ctx.drawImage(player.img,player.x,player.y,player.w,player.h);
   else ctx.drawImage(fbPlayer,player.x,player.y,player.w,player.h);
 }
 
 // loop
 let last=0;
-function loop(ts){ if(!last)last=ts; const dt=ts-last; last=ts; update(dt); draw(); if(running&&!paused) requestAnimationFrame(loop);}
+function loop(ts){ if(!last) last=ts; const dt = ts - last; last = ts; update(dt); draw(); if(running && !paused) requestAnimationFrame(loop); }
 
 // overlay & start
-overlayStart.addEventListener('click',()=>beginStartSequence());
+overlayStart.addEventListener('click', ()=> beginStartSequence());
 function beginStartSequence(){
+  // user gesture → allow audio
   sound.ensure();
   sound.beep(880,0.12,0);
-  enemies.length=0;
-  raceLaunched=false;
-  player.x=laneCenter(Math.floor(LANE_COUNT/2)); player.y=CANVAS_H-CAR_H-16;
-  startOverlay.style.display='none'; countOverlay.style.display='flex';
-  let n=3; countText.textContent=n; sound.beep(880,0.12,0);
-  const t=setInterval(()=>{
-    n--; if(n>0){ countText.textContent=n; sound.beep(880,0.12,0);}
-    else if(n===0){ countText.textContent='GO'; sound.beep(1320,0.16,0); setTimeout(()=>{ clearInterval(t); countOverlay.style.display='none'; sound.startEngine(); running=true; last=0; elapsed=0; spawnTimer=0; requestAnimationFrame(loop); },700);}
-  },1000);
+
+  // clear enemies and ensure player starts centered
+  enemies.length = 0;
+  raceLaunched = false;
+  player.x = laneCenter(Math.floor(LANE_COUNT/2));
+  player.y = CANVAS_H - CAR_H - 16;
+
+  startOverlay.style.display = 'none';
+  countOverlay.style.display = 'flex';
+
+  let n = 3;
+  countText.textContent = n;
+  sound.beep(880,0.12,0);
+  const t = setInterval(()=>{
+    n--;
+    if(n > 0){
+      countText.textContent = n;
+      sound.beep(880,0.12,0);
+    } else if(n === 0){
+      countText.textContent = 'GO';
+      sound.beep(1320,0.16,0);
+      setTimeout(()=> {
+        clearInterval(t);
+        countOverlay.style.display = 'none';
+        // start engine loop and game
+        sound.startEngine();
+        running = true;
+        last = 0; elapsed = 0; spawnTimer = 0;
+        requestAnimationFrame(loop);
+      }, 700);
+    }
+  }, 1000);
 }
 
 // end game
-function endGame(win){ running=false; paused=false; raceLaunched=false; if(win) hudScore.textContent='YOU WIN! Score: '+score; else hudScore.textContent='GAME OVER'; sound.stopEngine(); setTimeout(()=>{ score=0; lives=3; timeLeft=totalTime; baseSpeed=2; enemies.length=0; player.x=laneCenter(Math.floor(LANE_COUNT/2)); player.y=CANVAS_H-CAR_H-16; hudScore.textContent='Score: 0'; hudLives.textContent='Lives: 3'; hudTimer.textContent='Time: '+Math.ceil(totalTime); startOverlay.style.display='flex'; },900);}
+function endGame(win){
+  running = false; paused = false; raceLaunched = false;
+  if(win) hudScore.textContent = 'YOU WIN! Score: ' + score;
+  else hudScore.textContent = 'GAME OVER';
+  sound.stopEngine();
+  setTimeout(()=> {
+    // reset values for new game
+    score = 0; lives = 3; timeLeft = totalTime; baseSpeed = 2;
+    enemies.length = 0;
+    player.x = laneCenter(Math.floor(LANE_COUNT/2));
+    player.y = CANVAS_H - CAR_H - 16;
+    hudScore.textContent = 'Score: 0';
+    hudLives.textContent = 'Lives: 3';
+    hudTimer.textContent = 'Time: ' + Math.ceil(totalTime);
+    startOverlay.style.display = 'flex';
+  }, 900);
+}
 
 // initialize
-function resetAll(){ running=false; paused=false; score=0; lives=3; timeLeft=totalTime; baseSpeed=2; elapsed=0; spawnTimer=0; enemies.length=0; raceLaunched=false; player.x=laneCenter(Math.floor(LANE_COUNT/2)); player.y=CANVAS_H-CAR_H-16; hudScore.textContent='Score: 0'; hudLives.textContent='Lives: 3'; hudTimer.textContent='Time: '+Math.ceil(totalTime); draw();}
+function resetAll(){
+  running = false; paused = false;
+  score = 0; lives = 3; timeLeft = totalTime; baseSpeed = 2; elapsed = 0; spawnTimer = 0;
+  enemies.length = 0; raceLaunched = false;
+  player.x = laneCenter(Math.floor(LANE_COUNT/2));
+  player.y = CANVAS_H - CAR_H - 16;
+  hudScore.textContent = 'Score: 0';
+  hudLives.textContent = 'Lives: 3';
+  hudTimer.textContent = 'Time: ' + Math.ceil(totalTime);
+  draw();
+}
 resetAll();
-canvas.addEventListener('click',()=>canvas.focus());
+canvas.addEventListener('click', ()=> canvas.focus());
+
