@@ -1,4 +1,4 @@
-```js
+document.addEventListener("DOMContentLoaded", () => {
 // script.js — Fixed version for "Road Dodge — Race Start with Sounds"
 
 const canvas = document.getElementById("game");
@@ -199,4 +199,3 @@ function moveCar(key) {
       break;
   }
 }
-```
